@@ -15,6 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package consensus implements different Ethereum consensus engines.
+//consensus package用来实现不同的ethereum consensusm engine.
 package consensus
 
 import (
