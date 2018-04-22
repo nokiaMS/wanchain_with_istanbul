@@ -33,15 +33,16 @@ import (
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
+//創建istanbul consensus core.
 // New creates an Istanbul consensus core
 func New(backend istanbul.Backend, config *istanbul.Config) Engine {
 	c := &core{
 		config:             config,
 		address:            backend.Address(),
-		state:              StateAcceptRequest,
+		state:              StateAcceptRequest,  //istanbul consensus状态机有4个状态，StateAcceptRequest为初始状态。
 		handlerWg:          new(sync.WaitGroup),
 		logger:             log.New("address", backend.Address()),
-		backend:            backend,
+		backend:            backend,    //core关联的backend.
 		backlogs:           make(map[istanbul.Validator]*prque.Prque),
 		backlogsMu:         new(sync.Mutex),
 		pendingRequests:    prque.New(),
@@ -179,6 +180,7 @@ func (c *core) commit() {
 	}
 }
 
+//启动istanbul consensus状态机。
 // startNewRound starts a new round. if round equals to 0, it means to starts a new sequence
 func (c *core) startNewRound(round *big.Int) {
 	var logger log.Logger

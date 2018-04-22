@@ -22,6 +22,7 @@ import (
 	"fmt"
 )
 
+//启动istanbul consensus状态机。  
 // Start implements core.Engine.Start
 func (c *core) Start() error {
 	// Start a new round from last sequence + 1

@@ -478,10 +478,12 @@ func (sb *backend) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
+//Start()函数实现了Istanbul.Start()接口。
 // Start implements consensus.Istanbul.Start
 func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
 	sb.coreMu.Lock()
-	defer sb.coreMu.Unlock()
+	defer sb.coreMu.Unlock() //defer修饰的函数在包含defer的函数返回前才执行，但是被defer修饰的函数如果有参数，那么参数在定义defer函数的时候就被确定了。
+	                          //类似于这里的实现，在加锁之后马上通过defer定义解锁操作，避免了忘记解锁引起死锁的问题，是个好的习惯。
 	if sb.coreStarted {
 		return istanbul.ErrStartedEngine
 	}
@@ -491,17 +493,17 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	if sb.commitCh != nil {
 		close(sb.commitCh)
 	}
-	sb.commitCh = make(chan *types.Block, 1)
+	sb.commitCh = make(chan *types.Block, 1)  //在构造的时候就定义了通道，此处又重新定义了一次？
 
 	sb.chain = chain
 	sb.currentBlock = currentBlock
 	sb.hasBadBlock = hasBadBlock
 
-	if err := sb.core.Start(); err != nil {
+	if err := sb.core.Start(); err != nil {	//开始共识算法。
 		return err
 	}
 
-	sb.coreStarted = true
+	sb.coreStarted = true 	//表示共识算法已经开始了。
 	return nil
 }
 

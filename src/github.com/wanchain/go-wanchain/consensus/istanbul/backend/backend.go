@@ -41,26 +41,28 @@ const (
 	fetcherID = "istanbul"
 )
 
+//創建istanbul backend.
 // New creates an Ethereum backend for Istanbul core engine.
 func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database) consensus.Istanbul {
 	// Allocate the snapshot caches and create the engine
 	recents, _ := lru.NewARC(inmemorySnapshots)
 	recentMessages, _ := lru.NewARC(inmemoryPeers)
 	knownMessages, _ := lru.NewARC(inmemoryMessages)
-	backend := &backend{
+	backend := &backend{  //創建istanbul backend.
 		config:           config,
 		istanbulEventMux: new(event.TypeMux),
 		privateKey:       privateKey,
 		address:          crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:           log.New(),
 		db:               db,
-		commitCh:         make(chan *types.Block, 1),
+		commitCh:         make(chan *types.Block, 1),	//cimmitCh是一个异步channel,带有一个元素缓存。
 		recents:          recents,
 		candidates:       make(map[common.Address]bool),
 		coreStarted:      false,
 		recentMessages:   recentMessages,
 		knownMessages:    knownMessages,
 	}
+	//創建istanbul consensus core,并關聯到backend.core域。
 	backend.core = istanbulCore.New(backend, backend.config)
 	return backend
 }
@@ -83,7 +85,7 @@ type backend struct {
 	commitCh          chan *types.Block
 	proposedBlockHash common.Hash
 	sealMu            sync.Mutex
-	coreStarted       bool
+	coreStarted       bool	//共识算法是否已经开始的标志，true：已经开始，false：没有开始。
 	coreMu            sync.RWMutex
 
 	// Current list of candidates we are pushing
