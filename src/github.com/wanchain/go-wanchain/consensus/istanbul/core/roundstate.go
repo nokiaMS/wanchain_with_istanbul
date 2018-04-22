@@ -43,6 +43,7 @@ func newRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, lock
 	}
 }
 
+//roundState存储consensus state.
 // roundState stores the consensus state
 type roundState struct {
 	round          *big.Int

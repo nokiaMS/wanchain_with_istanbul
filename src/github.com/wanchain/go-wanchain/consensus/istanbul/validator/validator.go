@@ -21,16 +21,20 @@ import (
 	"github.com/wanchain/go-wanchain/consensus/istanbul"
 )
 
+//基于addr创建一个validator结构体.
+//		addr: 	validator的地址.
 func New(addr common.Address) istanbul.Validator {
 	return &defaultValidator{
 		address: addr,
 	}
 }
 
+//从地址addrs创建一个validator的集合.
 func NewSet(addrs []common.Address, policy istanbul.ProposerPolicy) istanbul.ValidatorSet {
 	return newDefaultSet(addrs, policy)
 }
 
+//从validator集合中转化出validator的address列表.
 func ExtractValidators(extraData []byte) []common.Address {
 	// get the validator addresses
 	addrs := make([]common.Address, (len(extraData) / common.AddressLength))
@@ -41,6 +45,7 @@ func ExtractValidators(extraData []byte) []common.Address {
 	return addrs
 }
 
+//检测extraData是否有效.
 // Check whether the extraData is presented in prescribed form
 func ValidExtraData(extraData []byte) bool {
 	return len(extraData)%common.AddressLength == 0

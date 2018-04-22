@@ -26,29 +26,37 @@ import (
 	"github.com/wanchain/go-wanchain/consensus/istanbul"
 )
 
+//默认的validator结构.
 type defaultValidator struct {
-	address common.Address
+	address common.Address 	//validator地址.
 }
 
+//返回validator地址.
 func (val *defaultValidator) Address() common.Address {
 	return val.address
 }
 
+//返回validator地址的字符串表示形式.
 func (val *defaultValidator) String() string {
 	return val.Address().String()
 }
 
 // ----------------------------------------------------------------------------
 
+//validator的默认集合结构体.
 type defaultSet struct {
-	validators istanbul.Validators
-	policy     istanbul.ProposerPolicy
+	validators istanbul.Validators 	//validator集合.
+	policy     istanbul.ProposerPolicy 	//proposer选取策略.
 
-	proposer    istanbul.Validator
-	validatorMu sync.RWMutex
-	selector    istanbul.ProposalSelector
+	proposer    istanbul.Validator	//当前的proposer.
+	validatorMu sync.RWMutex	//锁.
+	selector    istanbul.ProposalSelector	//proposer选举方法.
 }
 
+//创建validator default set.
+//		addrs:	validators的地址.
+//		policy:	proposer选举策略.
+//		返回:	defaultSet结构.
 func newDefaultSet(addrs []common.Address, policy istanbul.ProposerPolicy) *defaultSet {
 	valSet := &defaultSet{}
 
@@ -62,28 +70,33 @@ func newDefaultSet(addrs []common.Address, policy istanbul.ProposerPolicy) *defa
 	sort.Sort(valSet.validators)
 	// init proposer
 	if valSet.Size() > 0 {
+		//默认的proposer为排序后的validators的第一个.
 		valSet.proposer = valSet.GetByIndex(0)
 	}
+	//设置proposer选举方法为roundRobin.
 	valSet.selector = roundRobinProposer
 	if policy == istanbul.Sticky {
 		valSet.selector = stickyProposer
 	}
 
-	return valSet
+	return valSet 	//返回validator列表.
 }
 
+//返回validators个数.
 func (valSet *defaultSet) Size() int {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 	return len(valSet.validators)
 }
 
+//返回validators列表.
 func (valSet *defaultSet) List() []istanbul.Validator {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
 	return valSet.validators
 }
 
+//按照index获得validator.
 func (valSet *defaultSet) GetByIndex(i uint64) istanbul.Validator {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
@@ -93,6 +106,7 @@ func (valSet *defaultSet) GetByIndex(i uint64) istanbul.Validator {
 	return nil
 }
 
+//按照address获得validator.
 func (valSet *defaultSet) GetByAddress(addr common.Address) (int, istanbul.Validator) {
 	for i, val := range valSet.List() {
 		if addr == val.Address() {
@@ -102,21 +116,25 @@ func (valSet *defaultSet) GetByAddress(addr common.Address) (int, istanbul.Valid
 	return -1, nil
 }
 
+//获得当前proposer.
 func (valSet *defaultSet) GetProposer() istanbul.Validator {
 	return valSet.proposer
 }
 
+//判断当前address是不是proposer.
 func (valSet *defaultSet) IsProposer(address common.Address) bool {
 	_, val := valSet.GetByAddress(address)
 	return reflect.DeepEqual(valSet.GetProposer(), val)
 }
 
+//計算新的proposer.
 func (valSet *defaultSet) CalcProposer(lastProposer common.Address, round uint64) {
 	valSet.validatorMu.RLock()
-	defer valSet.validatorMu.RUnlock()
+	defer valSet.validatorMu.RUnlock()  //採用defer释放锁是一个好的方法.
 	valSet.proposer = valSet.selector(valSet, lastProposer, round)
 }
 
+//计算proposer选举时候使用的seed.
 func calcSeed(valSet istanbul.ValidatorSet, proposer common.Address, round uint64) uint64 {
 	offset := 0
 	if idx, val := valSet.GetByAddress(proposer); val != nil {
@@ -125,10 +143,16 @@ func calcSeed(valSet istanbul.ValidatorSet, proposer common.Address, round uint6
 	return uint64(offset) + round
 }
 
+//获得一个空的地址结构,通常用于初始化.
 func emptyAddress(addr common.Address) bool {
 	return addr == common.Address{}
 }
 
+//用roundRobin的方法选举proposer, 默认proposer选举的方法是使用的roundRobin.
+//		valSet;	validator集合.
+//		proposer:	当前proposer地址.
+//		round:	round编号.
+//		结果:	返回选举出来的proposer.
 func roundRobinProposer(valSet istanbul.ValidatorSet, proposer common.Address, round uint64) istanbul.Validator {
 	if valSet.Size() == 0 {
 		return nil
@@ -143,6 +167,7 @@ func roundRobinProposer(valSet istanbul.ValidatorSet, proposer common.Address, r
 	return valSet.GetByIndex(pick)
 }
 
+//用stickyProposer的方法选举proposer, 默认为使用roundRobin方法.
 func stickyProposer(valSet istanbul.ValidatorSet, proposer common.Address, round uint64) istanbul.Validator {
 	if valSet.Size() == 0 {
 		return nil
@@ -157,6 +182,7 @@ func stickyProposer(valSet istanbul.ValidatorSet, proposer common.Address, round
 	return valSet.GetByIndex(pick)
 }
 
+//增加一个validator.
 func (valSet *defaultSet) AddValidator(address common.Address) bool {
 	valSet.validatorMu.Lock()
 	defer valSet.validatorMu.Unlock()
@@ -172,6 +198,7 @@ func (valSet *defaultSet) AddValidator(address common.Address) bool {
 	return true
 }
 
+//移除一个validator.
 func (valSet *defaultSet) RemoveValidator(address common.Address) bool {
 	valSet.validatorMu.Lock()
 	defer valSet.validatorMu.Unlock()
@@ -185,6 +212,7 @@ func (valSet *defaultSet) RemoveValidator(address common.Address) bool {
 	return false
 }
 
+//获得一个新的validators的拷贝.
 func (valSet *defaultSet) Copy() istanbul.ValidatorSet {
 	valSet.validatorMu.RLock()
 	defer valSet.validatorMu.RUnlock()
@@ -196,6 +224,8 @@ func (valSet *defaultSet) Copy() istanbul.ValidatorSet {
 	return NewSet(addresses, valSet.policy)
 }
 
+//F().
 func (valSet *defaultSet) F() int { return int(math.Ceil(float64(valSet.Size())/3)) - 1 }
 
+//获得选举策略.
 func (valSet *defaultSet) Policy() istanbul.ProposerPolicy { return valSet.policy }

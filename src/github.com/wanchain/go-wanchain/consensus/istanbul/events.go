@@ -16,16 +16,19 @@
 
 package istanbul
 
+//提出一个proposal的时候产生此消息.
 // RequestEvent is posted to propose a proposal
 type RequestEvent struct {
 	Proposal Proposal
 }
 
+//MessageEvent用于Istanbul engine的通信.
 // MessageEvent is posted for Istanbul engine communication
 type MessageEvent struct {
 	Payload []byte
 }
 
+//当proposal被提交的时候发出此事件.
 // FinalCommittedEvent is posted when a proposal is committed
 type FinalCommittedEvent struct {
 }

@@ -49,7 +49,7 @@ func (slice Validators) Swap(i, j int) {
 // ----------------------------------------------------------------------------
 
 type ValidatorSet interface {
-	// Calculate the proposer
+	// Calculate the proposer, 计算proposer.
 	CalcProposer(lastProposer common.Address, round uint64)
 	// Return the validator size
 	Size() int

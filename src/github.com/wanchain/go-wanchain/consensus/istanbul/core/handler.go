@@ -25,13 +25,14 @@ import (
 //启动istanbul consensus状态机。  
 // Start implements core.Engine.Start
 func (c *core) Start() error {
+	//开始一个新的consensus round.
 	// Start a new round from last sequence + 1
 	c.startNewRound(common.Big0)
 
 	// Tests will handle events itself, so we have to make subscribeEvents()
 	// be able to call in test.
-	c.subscribeEvents()
-	go c.handleEvents()
+	c.subscribeEvents()	//订阅istanbul consensus相关事件.
+	go c.handleEvents()		//启动一个单独的线程进行事件处理.
 
 	return nil
 }
@@ -52,19 +53,20 @@ func (c *core) Stop() error {
 func (c *core) subscribeEvents() {
 	c.events = c.backend.EventMux().Subscribe(
 		// external events
-		istanbul.RequestEvent{},
-		istanbul.MessageEvent{},
+		istanbul.RequestEvent{},	//proposal相关事件.
+		istanbul.MessageEvent{},	//istanbul engine相关事件.
 		// internal events
-		backlogEvent{},
+		backlogEvent{},				//订阅日志事件.
 	)
-	c.timeoutSub = c.backend.EventMux().Subscribe(
+	c.timeoutSub = c.backend.EventMux().Subscribe(	//订阅超时事件.
 		timeoutEvent{},
 	)
-	c.finalCommittedSub = c.backend.EventMux().Subscribe(
+	c.finalCommittedSub = c.backend.EventMux().Subscribe(	//订阅proposal committed事件.
 		istanbul.FinalCommittedEvent{},
 	)
 }
 
+//解除订阅.
 // Unsubscribe all events
 func (c *core) unsubscribeEvents() {
 	c.events.Unsubscribe()
@@ -72,6 +74,7 @@ func (c *core) unsubscribeEvents() {
 	c.finalCommittedSub.Unsubscribe()
 }
 
+//处理事件.
 func (c *core) handleEvents() {
 	// Clear state
 	defer func() {
@@ -82,14 +85,15 @@ func (c *core) handleEvents() {
 	c.handlerWg.Add(1)
 
 	for {
-		select {
-		case event, ok := <-c.events.Chan():
+		select {	//让线程在多个channel操作上等待.
+		case event, ok := <-c.events.Chan():	//engine事件.
 			if !ok {
 				return
 			}
 			// A real event arrived, process interesting content
+			//engine事件分为三类.
 			switch ev := event.Data.(type) {
-			case istanbul.RequestEvent:
+			case istanbul.RequestEvent:	//proposal相关事件.
 				fmt.Println("gx1: events RequestEvent")
 				r := &istanbul.Request{
 					Proposal: ev.Proposal,
@@ -98,12 +102,12 @@ func (c *core) handleEvents() {
 				if err == errFutureMessage {
 					c.storeRequestMsg(r)
 				}
-			case istanbul.MessageEvent:
+			case istanbul.MessageEvent:	//engine通信相关事件.
 				fmt.Println("gx1: events MessageEvent")
 				if err := c.handleMsg(ev.Payload); err == nil {
 					c.backend.Gossip(c.valSet, ev.Payload)
 				}
-			case backlogEvent:
+			case backlogEvent:		//backlog相关事件.
 				fmt.Println("gx1: events backlogEvent")
 				// No need to check signature for internal messages
 				if err := c.handleCheckedMsg(ev.msg, ev.src); err == nil {
@@ -115,13 +119,13 @@ func (c *core) handleEvents() {
 					c.backend.Gossip(c.valSet, p)
 				}
 			}
-		case _, ok := <-c.timeoutSub.Chan():
+		case _, ok := <-c.timeoutSub.Chan():	//超时事件.
 			fmt.Println("gx1: timeoutSub")
 			if !ok {
 				return
 			}
 			c.handleTimeoutMsg()
-		case event, ok := <-c.finalCommittedSub.Chan():
+		case event, ok := <-c.finalCommittedSub.Chan():	//proposal最终提交事件.
 			fmt.Println("gx1: finalCommittedSub")
 			if !ok {
 				return

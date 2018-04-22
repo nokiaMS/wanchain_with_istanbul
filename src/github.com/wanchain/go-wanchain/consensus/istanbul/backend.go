@@ -29,7 +29,7 @@ type Backend interface {
 	// Address returns the owner's address
 	Address() common.Address
 
-	// Validators returns the validator set
+	// Validators returns the validator set, 返回validator集合.
 	Validators(proposal Proposal) ValidatorSet
 
 	// EventMux returns the event mux in backend
@@ -43,7 +43,7 @@ type Backend interface {
 
 	// Commit delivers an approved proposal to backend.
 	// The delivered proposal will be put into blockchain.
-	Commit(proposal Proposal, seals [][]byte) error
+	Commit(proposal Proposal, seals [][]byte) error 	//把已经达成共识的proposal提交到blockchain中.
 
 	// Verify verifies the proposal. If a consensus.ErrFutureBlock error is returned,
 	// the time difference of the proposal and current time is also returned.

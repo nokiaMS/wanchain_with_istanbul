@@ -23,6 +23,7 @@ import (
 	"github.com/wanchain/go-wanchain/consensus/istanbul"
 )
 
+//发送commit消息.
 func (c *core) sendCommit() {
 	sub := c.current.Subject()
 	c.broadcastCommit(sub)
@@ -36,6 +37,7 @@ func (c *core) sendCommitForOldBlock(view *istanbul.View, digest common.Hash) {
 	c.broadcastCommit(sub)
 }
 
+//发送确认消息.
 func (c *core) broadcastCommit(sub *istanbul.Subject) {
 	logger := c.logger.New("state", c.state)
 
@@ -50,6 +52,7 @@ func (c *core) broadcastCommit(sub *istanbul.Subject) {
 	})
 }
 
+//处理commit消息.
 func (c *core) handleCommit(msg *message, src istanbul.Validator) error {
 	// Decode COMMIT message
 	var commit *istanbul.Subject

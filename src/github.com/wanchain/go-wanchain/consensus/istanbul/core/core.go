@@ -61,7 +61,7 @@ func New(backend istanbul.Backend, config *istanbul.Config) Engine {
 type core struct {
 	config  *istanbul.Config
 	address common.Address
-	state   State
+	state   State		//当前istanbul consensus的状态. (request, preprepare, prepare, commit.)
 	logger  log.Logger
 
 	backend               istanbul.Backend
@@ -229,7 +229,7 @@ func (c *core) startNewRound(round *big.Int) {
 			Sequence: new(big.Int).Add(lastProposal.Number(), common.Big1),
 			Round:    new(big.Int),
 		}
-		c.valSet = c.backend.Validators(lastProposal)
+		c.valSet = c.backend.Validators(lastProposal)  //返回validators集合.
 	}
 
 	// Update logger
@@ -238,10 +238,12 @@ func (c *core) startNewRound(round *big.Int) {
 	c.roundChangeSet = newRoundChangeSet(c.valSet)
 	// New snapshot for new round
 	c.updateRoundState(newView, c.valSet, roundChange)
+
+	//计算新的proposer.
 	// Calculate new proposer
 	c.valSet.CalcProposer(lastProposer, newView.Round.Uint64())
 	c.waitingForRoundChange = false
-	c.setState(StateAcceptRequest)
+	c.setState(StateAcceptRequest)	//设置istanbul consensus状态为初始状态.
 	if roundChange && c.isProposer() && c.current != nil {
 		// If it is locked, propose the old proposal
 		// If we have pending request, propose pending request
@@ -249,7 +251,7 @@ func (c *core) startNewRound(round *big.Int) {
 			r := &istanbul.Request{
 				Proposal: c.current.Proposal(), //c.current.Proposal would be the locked proposal by previous proposer, see updateRoundState
 			}
-			c.sendPreprepare(r)
+			c.sendPreprepare(r) 		//发送preprepare.
 		} else if c.current.pendingRequest != nil {
 			c.sendPreprepare(c.current.pendingRequest)
 		}
@@ -289,6 +291,7 @@ func (c *core) updateRoundState(view *istanbul.View, validatorSet istanbul.Valid
 	}
 }
 
+//设置istanbul consensus 状态.
 func (c *core) setState(state State) {
 	if c.state != state {
 		c.state = state

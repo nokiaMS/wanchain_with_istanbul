@@ -696,6 +696,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	return nil
 }
 
+//实现了broadcaster的Enqueue()方法.
 func (pm *ProtocolManager) Enqueue(id string, block *types.Block) {
 	pm.fetcher.Enqueue(id, block)
 }

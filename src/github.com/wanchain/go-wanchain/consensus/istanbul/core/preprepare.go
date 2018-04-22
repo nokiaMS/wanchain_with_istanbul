@@ -23,6 +23,8 @@ import (
 	"github.com/wanchain/go-wanchain/consensus/istanbul"
 )
 
+//发送preprepare消息.
+//		request:	要发送的消息.
 func (c *core) sendPreprepare(request *istanbul.Request) {
 	logger := c.logger.New("state", c.state)
 
@@ -38,6 +40,7 @@ func (c *core) sendPreprepare(request *istanbul.Request) {
 			return
 		}
 
+		//广播preprepare消息.
 		c.broadcast(&message{
 			Code: msgPreprepare,
 			Msg:  preprepare,
@@ -45,6 +48,7 @@ func (c *core) sendPreprepare(request *istanbul.Request) {
 	}
 }
 
+//处理preprepare消息.
 func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 	logger := c.logger.New("from", src, "state", c.state)
 
@@ -74,12 +78,14 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 		return err
 	}
 
+	//preprepare消息必须是来自当前的proposer.
 	// Check if the message comes from current proposer
 	if !c.valSet.IsProposer(src.Address()) {
 		logger.Warn("Ignore preprepare messages from non-proposer")
 		return errNotFromProposer
 	}
 
+	//验证preprepare消息.
 	// Verify the proposal we received
 	if duration, err := c.backend.Verify(preprepare.Proposal); err != nil {
 		logger.Warn("Failed to verify proposal", "err", err, "duration", duration)
@@ -99,14 +105,15 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 	}
 
 	// Here is about to accept the PRE-PREPARE
-	if c.state == StateAcceptRequest {
+	if c.state == StateAcceptRequest {	//只有在StateAcceptRequest状态的时候才接受preprepare消息.
 		// Send ROUND CHANGE if the locked proposal and the received proposal are different
 		if c.current.IsHashLocked() {
 			if preprepare.Proposal.Hash() == c.current.GetLockedHash() {
 				// Broadcast COMMIT and enters Prepared state directly
-				c.acceptPreprepare(preprepare)
-				c.setState(StatePrepared)
-				c.sendCommit()
+				//接受preprepare消息.
+				c.acceptPreprepare(preprepare)	//接受preprepare消息.
+				c.setState(StatePrepared)		//设置当前状态及状态.
+				c.sendCommit() 					//发送确认消息.
 			} else {
 				// Send round change
 				c.sendNextRoundChange()
@@ -115,15 +122,16 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 			// Either
 			//   1. the locked proposal and the received proposal match
 			//   2. we have no locked proposal
-			c.acceptPreprepare(preprepare)
-			c.setState(StatePreprepared)
-			c.sendPrepare()
+			c.acceptPreprepare(preprepare)	//接受preprepare.
+			c.setState(StatePreprepared) //设置istanbul consensus 状态, StateAcceptRequest -> StatePreprepared
+			c.sendPrepare() 	//发送prepare消息.
 		}
 	}
 
 	return nil
 }
 
+//接受preprepare消息.
 func (c *core) acceptPreprepare(preprepare *istanbul.Preprepare) {
 	c.consensusTimestamp = time.Now()
 	c.current.SetPreprepare(preprepare)

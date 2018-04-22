@@ -20,9 +20,11 @@ import (
 	"github.com/wanchain/go-wanchain/consensus/istanbul"
 )
 
+//日志事件.
 type backlogEvent struct {
-	src istanbul.Validator
-	msg *message
+	src istanbul.Validator	//发出日志事件的validator.
+	msg *message			//消息内容.
 }
 
+//超时消息.
 type timeoutEvent struct{}

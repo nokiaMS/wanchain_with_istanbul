@@ -18,9 +18,10 @@ package istanbul
 
 type ProposerPolicy uint64
 
+//proposer的选举方法.
 const (
-	RoundRobin ProposerPolicy = iota
-	Sticky
+	RoundRobin ProposerPolicy = iota	//RoundRobin方法.
+	Sticky								//Sticky方法.
 )
 
 type Config struct {

@@ -22,6 +22,7 @@ import (
 	"github.com/wanchain/go-wanchain/consensus/istanbul"
 )
 
+//发送prepare消息.
 func (c *core) sendPrepare() {
 	logger := c.logger.New("state", c.state)
 
@@ -37,6 +38,7 @@ func (c *core) sendPrepare() {
 	})
 }
 
+//处理msgPrepare消息.
 func (c *core) handlePrepare(msg *message, src istanbul.Validator) error {
 	// Decode PREPARE message
 	var prepare *istanbul.Subject
