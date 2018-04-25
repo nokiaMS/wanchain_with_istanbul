@@ -22,12 +22,13 @@ import (
 	"fmt"
 )
 
+//开始共识算法流程.
 //启动istanbul consensus状态机。  
 // Start implements core.Engine.Start
 func (c *core) Start() error {
 	//开始一个新的consensus round.
 	// Start a new round from last sequence + 1
-	c.startNewRound(common.Big0)
+	c.startNewRound(common.Big0)	//初始round为0.
 
 	// Tests will handle events itself, so we have to make subscribeEvents()
 	// be able to call in test.

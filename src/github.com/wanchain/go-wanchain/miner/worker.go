@@ -205,6 +205,7 @@ func (self *worker) pendingBlock() *types.Block {
 	return self.current.Block
 }
 
+//开始挖矿.
 func (self *worker) start() {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -214,6 +215,7 @@ func (self *worker) start() {
 
 	atomic.StoreInt32(&self.mining, 1)
 	if istanbul, ok := self.engine.(consensus.Istanbul); ok {
+		//如果是istanbul engine,那么进到此处.
 		istanbul.Start(self.chain, self.chain.CurrentBlock, self.chain.HasBadBlock)
 	}
 

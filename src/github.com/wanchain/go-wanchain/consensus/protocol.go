@@ -38,7 +38,7 @@ var (
 )
 
 // Protocol defines the protocol of the consensus
-type Protocol struct {
+type Protocol struct {		//定义了consensus的协议.
 	// Official short name of the protocol used during capability negotiation.
 	Name string
 	// Supported versions of the eth protocol (first is primary).
@@ -50,13 +50,13 @@ type Protocol struct {
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer
 type Broadcaster interface {
 	// Enqueue add a block into fetcher queue
-	Enqueue(id string, block *types.Block)
+	Enqueue(id string, block *types.Block)	//把一个block放入到fetcher队列.
 	// FindPeers retrives peers by addresses
-	FindPeers(map[common.Address]bool) map[common.Address]Peer
+	FindPeers(map[common.Address]bool) map[common.Address]Peer	//通过地址列表查找peers.
 }
 
 // Peer defines the interface to communicate with peer
-type Peer interface {
+type Peer interface {		//peer定义了和对端通信的接口.
 	// Send sends the message to this peer
 	Send(msgcode uint64, data interface{}) error
 }

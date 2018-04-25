@@ -478,6 +478,7 @@ func (sb *backend) APIs(chain consensus.ChainReader) []rpc.API {
 	}}
 }
 
+//开始挖矿(开始共识算法流程).
 //Start()函数实现了Istanbul.Start()接口。
 // Start implements consensus.Istanbul.Start
 func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
@@ -493,7 +494,7 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 	if sb.commitCh != nil {
 		close(sb.commitCh)
 	}
-	sb.commitCh = make(chan *types.Block, 1)  //在构造的时候就定义了通道，此处又重新定义了一次？
+	sb.commitCh = make(chan *types.Block, 1)
 
 	sb.chain = chain
 	sb.currentBlock = currentBlock

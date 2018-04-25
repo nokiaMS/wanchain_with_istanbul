@@ -344,6 +344,7 @@ func (self *Ethereum) SetEtherbase(etherbase common.Address) {
 	self.miner.SetEtherbase(etherbase)
 }
 
+//开始挖矿.
 func (s *Ethereum) StartMining(local bool) error {
 	eb, err := s.Etherbase()
 	if err != nil {

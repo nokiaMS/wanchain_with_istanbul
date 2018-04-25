@@ -112,7 +112,7 @@ func (c *core) handlePreprepare(msg *message, src istanbul.Validator) error {
 				// Broadcast COMMIT and enters Prepared state directly
 				//接受preprepare消息.
 				c.acceptPreprepare(preprepare)	//接受preprepare消息.
-				c.setState(StatePrepared)		//设置当前状态及状态.
+				c.setState(StatePrepared)		//设置当前状态.
 				c.sendCommit() 					//发送确认消息.
 			} else {
 				// Send round change

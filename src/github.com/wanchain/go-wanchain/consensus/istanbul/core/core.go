@@ -31,6 +31,7 @@ import (
 	metrics "github.com/wanchain/go-wanchain/metrics"
 	goMetrics "github.com/rcrowley/go-metrics"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
+	"fmt"
 )
 
 //創建istanbul consensus core.
@@ -293,6 +294,7 @@ func (c *core) updateRoundState(view *istanbul.View, validatorSet istanbul.Valid
 
 //设置istanbul consensus 状态.
 func (c *core) setState(state State) {
+	fmt.Println("teamsun: setState " + state.String())
 	if c.state != state {
 		c.state = state
 	}
