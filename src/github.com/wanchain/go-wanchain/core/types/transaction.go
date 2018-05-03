@@ -47,25 +47,29 @@ func deriveSigner(V *big.Int) Signer {
 	}
 }
 
+//Transaction代表一个交易.
 type Transaction struct {
-	data txdata
+	data txdata		//交易属性.
 	// caches
 	hash atomic.Value
 	size atomic.Value
 	from atomic.Value
 }
 
+//交易属性.
 type txdata struct {
 	Txtype uint64 `json:"Txtype"    gencodec:"required"`
 
-	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
-	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
-	GasLimit     *big.Int        `json:"gas"      gencodec:"required"`
-	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
+	AccountNonce uint64          `json:"nonce"    gencodec:"required"`	//账户的nonce值 (nonce值属于账户,不属于交易,同一个账户的不同交易nonce不会相同.)
+	Price        *big.Int        `json:"gasPrice" gencodec:"required"`	//表示一个gas值多少钱.
+	GasLimit     *big.Int        `json:"gas"      gencodec:"required"`	//此交易执行所允许的gas上限.
+	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation	//目的账户,为空表示创建合约.
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
-	Payload      []byte          `json:"input"    gencodec:"required"`
+	Payload      []byte          `json:"input"    gencodec:"required"`	//交易载荷,可以是合约代码也可以是后续传递给合约的参数.
+																				//合约由EVM来创建和执行.
 
 	// Signature values
+	//签名相关字段.
 	V *big.Int `json:"v" gencodec:"required"`
 	R *big.Int `json:"r" gencodec:"required"`
 	S *big.Int `json:"s" gencodec:"required"`
@@ -87,40 +91,49 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
+//创建一个新的交易.
 func NewTransaction(nonce uint64, to common.Address, amount, gasLimit, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)	//创建新的交易对象.
 }
 
 func NewContractCreation(nonce uint64, amount, gasLimit, gasPrice *big.Int, data []byte) *Transaction {
 	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
+//创建新的交易.返回交易对象指针.
+//nonce值;
+//目的账户;
+//amount
+//最大gas数限制;
+//每个gas的价格;
+//交易附加数据;
 func newTransaction(nonce uint64, to *common.Address, amount, gasLimit, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 	d := txdata{
-		Txtype:       NORMAL_TX,
-		AccountNonce: nonce,
-		Recipient:    to,
-		Payload:      data,
+		Txtype:       NORMAL_TX,	//正常类型的交易. (正常类型交易|私有类型交易)
+		AccountNonce: nonce,		//账户nonce值
+		Recipient:    to,			//目的账户地址.
+		Payload:      data,			//交易负载.
 		Amount:       new(big.Int),
-		GasLimit:     new(big.Int),
-		Price:        new(big.Int),
-		V:            new(big.Int),
-		R:            new(big.Int),
-		S:            new(big.Int),
+		GasLimit:     new(big.Int),		//gas上限
+		Price:        new(big.Int),		//每个gas的价格.
+		V:            new(big.Int),		//用于签名.
+		R:            new(big.Int),		//用于签名.
+		S:            new(big.Int),		//用于签名.
 	}
-	if amount != nil {
+	if amount != nil {		//设置amount.
 		d.Amount.Set(amount)
 	}
-	if gasLimit != nil {
+	if gasLimit != nil {	//设置gasLimit.
 		d.GasLimit.Set(gasLimit)
 	}
-	if gasPrice != nil {
+	if gasPrice != nil {   //设置gasPrice.
 		d.Price.Set(gasPrice)
 	}
 
+	//返回一个交易对象的地址.
 	return &Transaction{data: d}
 }
 
@@ -197,6 +210,7 @@ func (tx *Transaction) CheckNonce() bool   { return true }
 
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
+//返回目的账户地址.
 func (tx *Transaction) To() *common.Address {
 	if tx.data.Recipient == nil {
 		return nil
@@ -251,6 +265,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 
 // WithSignature returns a new transaction with the given signature.
 // This signature needs to be formatted as described in the yellow paper (v+27).
+//返回一个带有签名的新的交易对象.
 func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, error) {
 	r, s, v, err := signer.SignatureValues(tx, sig)
 	if err != nil {
@@ -325,6 +340,7 @@ func (tx *Transaction) String() string {
 }
 
 // Transaction slice type for basic sorting.
+//Transactions是Transaction类型指针的数组.一个Transaction代表一个交易.
 type Transactions []*Transaction
 
 // Len returns the length of s
@@ -520,15 +536,18 @@ func newOTATransaction(nonce uint64, to *common.Address, amount, gasLimit, gasPr
 	return &Transaction{data: d}
 }
 
+//交易类型.
 const (
-	NORMAL_TX  = 1
-	PRIVACY_TX = 6
+	NORMAL_TX  = 1		//正常交易.
+	PRIVACY_TX = 6		//私有交易
 )
 
+//判断是否是正常类型的交易.
 func IsNormalTransaction(txType uint64) bool {
 	return txType != PRIVACY_TX
 }
 
+//判断是否是有效的交易类型.
 func IsValidTransactionType(txType uint64) bool {
 	return (txType == NORMAL_TX || txType == PRIVACY_TX)
 }

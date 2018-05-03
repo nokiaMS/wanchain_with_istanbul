@@ -188,20 +188,20 @@ type TxPool struct {
 	chainHeadCh  chan ChainHeadEvent
 	chainHeadSub event.Subscription
 	signer       types.Signer
-	mu           sync.RWMutex
+	mu           sync.RWMutex		//读写锁,在添加交易到txpool中时会加鎖
 
 	currentState  *state.StateDB      // Current state in the blockchain head
 	pendingState  *state.ManagedState // Pending state tracking virtual nonces
 	currentMaxGas *big.Int            // Current gas limit for transaction caps
 
 	locals  *accountSet // Set of local transaction to exepmt from evicion rules
-	journal *txJournal  // Journal of local transaction to back up to disk
+	journal *txJournal  // Journal of local transaction to back up to disk		//备份到磁盘的本地交易日志.
 
 	pending map[common.Address]*txList         // All currently processable transactions
-	queue   map[common.Address]*txList         // Queued but non-processable transactions
+	queue   map[common.Address]*txList         // Queued but non-processable transactions		//已经存储但还没有处理的交易.一个账户对应一个txList.
 	beats   map[common.Address]time.Time       // Last heartbeat from each known account
-	all     map[common.Hash]*types.Transaction // All transactions to allow lookups
-	priced  *txPricedList                      // All transactions sorted by price
+	all     map[common.Hash]*types.Transaction // All transactions to allow lookups	//pool中所有交易的hash列表. 交易hash -> 交易对象指针.
+	priced  *txPricedList                      // All transactions sorted by price		//按照价格排序的tx列表.
 
 	wg sync.WaitGroup // for shutdown sync
 
@@ -624,18 +624,22 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 // the pool due to pricing constraints.
 func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 	// If the transaction is already known, discard it
-	hash := tx.Hash()
+	hash := tx.Hash()	//计算交易hash
+
+	//如果交易已经存在于txpool中,则报错函数退出.
 	if pool.all[hash] != nil {
 		log.Trace("Discarding already known transaction", "hash", hash)
 		return false, fmt.Errorf("known transaction: %x", hash)
 	}
 	// If the transaction fails basic validation, discard it
+	//验证交易有效性.
 	if err := pool.validateTx(tx, local); err != nil {
 		log.Trace("Discarding invalid transaction", "hash", hash, "err", err)
 		invalidTxCounter.Inc(1)
 		return false, err
 	}
 	// If the transaction pool is full, discard underpriced transactions
+	//处理交易池满的情况.
 	if uint64(len(pool.all)) >= pool.config.GlobalSlots+pool.config.GlobalQueue {
 		// If the new transaction is underpriced, don't accept it
 		if pool.priced.Underpriced(tx, pool.locals) {
@@ -674,15 +678,16 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return old != nil, nil
 	}
 	// New transaction isn't replacing a pending one, push into queue
+	//把交易放入txpool.
 	replace, err := pool.enqueueTx(hash, tx)
 	if err != nil {
 		return false, err
 	}
 	// Mark local addresses and journal local transactions
 	if local {
-		pool.locals.add(from)
+		pool.locals.add(from)	//账户添加到本地账户中.
 	}
-	pool.journalTx(from, tx)
+	pool.journalTx(from, tx)	//保存交易到本地磁盘日志中.
 
 	log.Trace("Pooled new future transaction", "hash", hash, "from", from, "to", tx.To())
 	return replace, nil
@@ -691,12 +696,15 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 // enqueueTx inserts a new transaction into the non-executable transaction queue.
 //
 // Note, this method assumes the pool lock is held!
+//把交易添加到txpool中.
 func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, error) {
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if pool.queue[from] == nil {
 		pool.queue[from] = newTxList(false)
 	}
+
+	//把交易添加到指定账户下.
 	inserted, old := pool.queue[from].Add(tx, pool.config.PriceBump)
 	if !inserted {
 		// An older transaction was better, discard this
@@ -709,7 +717,9 @@ func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, er
 		pool.priced.Removed()
 		queuedReplaceCounter.Inc(1)
 	}
+	//所有交易的hash索引.
 	pool.all[hash] = tx
+	//按照价格排序的tx列表.
 	pool.priced.Put(tx)
 	return old != nil, nil
 }
@@ -721,6 +731,7 @@ func (pool *TxPool) journalTx(from common.Address, tx *types.Transaction) {
 	if pool.journal == nil || !pool.locals.contains(from) {
 		return
 	}
+	//保存本地交易到本地磁盘日志中.
 	if err := pool.journal.insert(tx); err != nil {
 		log.Warn("Failed to journal local transaction", "err", err)
 	}
@@ -766,6 +777,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // AddLocal enqueues a single transaction into the pool if it is valid, marking
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
+//把交易添加到txpool中.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
@@ -792,11 +804,13 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) error {
 }
 
 // addTx enqueues a single transaction into the pool if it is valid.
+//添加交易到txpool中.
 func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
+	pool.mu.Lock()	//加写锁.(加写锁导致即不能读也不能写.)
+	defer pool.mu.Unlock()		//函数执行结束后自动解锁.
 
 	// Try to inject the transaction and update any state
+	//添加交易,更新状态.
 	replace, err := pool.add(tx, local)
 	if err != nil {
 		return err

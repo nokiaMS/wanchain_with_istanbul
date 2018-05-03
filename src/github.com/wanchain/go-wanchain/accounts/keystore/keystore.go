@@ -58,6 +58,7 @@ var KeyStoreScheme = "keystore"
 const walletRefreshCycle = 3 * time.Second
 
 // KeyStore manages a key storage directory on disk.
+//keyStore结构体.
 type KeyStore struct {
 	storage  keyStore                     // Storage backend, might be cleartext or encrypted
 	cache    *accountCache                // In-memory account cache over the filesystem storage
@@ -69,7 +70,7 @@ type KeyStore struct {
 	updateScope event.SubscriptionScope // Subscription scope tracking current live listeners
 	updating    bool                    // Whether the event notification loop is running
 
-	mu sync.RWMutex
+	mu sync.RWMutex		//读写锁.
 }
 
 type unlocked struct {
@@ -270,16 +271,18 @@ func (ks *KeyStore) SignHash(a accounts.Account, hash []byte) ([]byte, error) {
 }
 
 // SignTx signs the given transaction with the requested account.
+//使用参数中的账户给指定交易签名.
 func (ks *KeyStore) SignTx(a accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	// Look up the key to sign with and abort if it cannot be found
-	ks.mu.RLock()
-	defer ks.mu.RUnlock()
+	ks.mu.RLock()	//加读锁.
+	defer ks.mu.RUnlock()	//函数结束后,释放读锁.
 
-	unlockedKey, found := ks.unlocked[a.Address]
+	unlockedKey, found := ks.unlocked[a.Address]	//解锁账户.
 	if !found {
 		return nil, ErrLocked
 	}
 	// Depending on the presence of the chain ID, sign with EIP155 or homestead
+	//使用账户的私钥给交易签名,并且返回签名后的新的交易对象指针.
 	if chainID != nil {
 		return types.SignTx(tx, types.NewEIP155Signer(chainID), unlockedKey.PrivateKey)
 	}

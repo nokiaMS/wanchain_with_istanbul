@@ -104,6 +104,7 @@ out:
 }
 
 //开始挖矿.
+//coinbase: 使用此账号挖矿.
 func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
 	self.worker.setEtherbase(coinbase)

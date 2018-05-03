@@ -100,6 +100,11 @@ func (w *keystoreWallet) SignHash(account accounts.Account, hash []byte) ([]byte
 // with the given account. If the wallet does not wrap this particular account,
 // an error is returned to avoid account leakage (even though in theory we may
 // be able to sign via our shared keystore backend).
+//使用给定账户给交易签名.
+//给定的账户.
+//给定的交易对象指针.
+//chain id.
+//返回签名之后的交易对象.
 func (w *keystoreWallet) SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	// Make sure the requested account is contained within
 	if account.Address != w.account.Address {
@@ -109,6 +114,7 @@ func (w *keystoreWallet) SignTx(account accounts.Account, tx *types.Transaction,
 		return nil, accounts.ErrUnknownAccount
 	}
 	// Account seems valid, request the keystore to sign
+	//账号检查通过,开始签名过程.
 	return w.keystore.SignTx(account, tx, chainID)
 }
 

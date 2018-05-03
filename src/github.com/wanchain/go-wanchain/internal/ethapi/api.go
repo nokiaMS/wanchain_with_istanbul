@@ -1119,7 +1119,7 @@ func newRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransa
 // PublicTransactionPoolAPI exposes methods for the RPC interface
 type PublicTransactionPoolAPI struct {
 	b         Backend
-	nonceLock *AddrLocker
+	nonceLock *AddrLocker	//nonce,为了避免相同账户的多个交易使用相同的nonce值,所以在发送交易时首先锁定nonceLock.(AddrLocker的特性决定了不同账户之间不会互相影响,每个账户有自己独立的互斥锁.)
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
@@ -1281,17 +1281,19 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 }
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
+//提交新交易到交易池中时使用的参数.
 type SendTxArgs struct {
-	From     common.Address  `json:"from"`
-	To       *common.Address `json:"to"`
-	Gas      *hexutil.Big    `json:"gas"`
-	GasPrice *hexutil.Big    `json:"gasPrice"`
+	From     common.Address  `json:"from"`	//交易发起方
+	To       *common.Address `json:"to"`		//交易目的方, 如果To为空,表示要创建一个新的合约(执行创建合约的交易),不为空则是执行一个正常交易.
+	Gas      *hexutil.Big    `json:"gas"`		//交易允许花费的最大gas数.
+	GasPrice *hexutil.Big    `json:"gasPrice"`	//每个gas的价格.
 	Value    *hexutil.Big    `json:"value"`
-	Data     hexutil.Bytes   `json:"data"`
-	Nonce    *hexutil.Uint64 `json:"nonce"`
+	Data     hexutil.Bytes   `json:"data"`	//交易附加数据.
+	Nonce    *hexutil.Uint64 `json:"nonce"`	//交易的nonce值(唯一标识),同一账户的交易的nonce值不相同,不同账户的nonce值可能会相同.
 }
 
 // prepareSendTxArgs is a helper function that fills in default values for unspecified tx fields.
+//对没有指定的交易参数赋值为默认值.
 func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 	if args.Gas == nil {
 		args.Gas = (*hexutil.Big)(big.NewInt(defaultGas))
@@ -1307,7 +1309,7 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		args.Value = new(hexutil.Big)
 	}
 	if args.Nonce == nil {
-		nonce, err := b.GetPoolNonce(ctx, args.From)
+		nonce, err := b.GetPoolNonce(ctx, args.From)	//nonce的值是在哪里增1的???
 		if err != nil {
 			return err
 		}
@@ -1316,18 +1318,23 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 	return nil
 }
 
+//生成交易对象.
 func (args *SendTxArgs) toTransaction() *types.Transaction {
-	if args.To == nil {
+	if args.To == nil {		//To为空,表示创建一个新合约.
 		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice), args.Data)
 	}
+	//否则为执行一个正常交易.
 	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice), args.Data)
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
+//提交已经签名的交易到交易池.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+	//把已经签名好的交易放到txpool中.
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
+	//如果目的账户为空,那么为创建新合约,否则为提交新的交易.然后打印相关日志信息.
 	if tx.To() == nil {
 		signer := types.MakeSigner(b.ChainConfig(), b.CurrentBlock().Number())
 		from, err := types.Sender(signer, tx)
@@ -1344,11 +1351,13 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
+//用给定参数创建交易,给交易签名,然后提交交易到交易池中.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 
 	// Look up the wallet containing the requested signer
-	account := accounts.Account{Address: args.From}
+	account := accounts.Account{Address: args.From} 	//创建一个新的账号对象.
 
+	//返回账号所在的钱包.出错函数退出.
 	wallet, err := s.b.AccountManager().Find(account)
 	if err != nil {
 		return common.Hash{}, err
@@ -1357,28 +1366,34 @@ func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args Sen
 	if args.Nonce == nil {
 		// Hold the addresse's mutex around signing to prevent concurrent assignment of
 		// the same nonce to multiple accounts.
-		s.nonceLock.LockAddr(args.From)
-		defer s.nonceLock.UnlockAddr(args.From)
+		s.nonceLock.LockAddr(args.From)		//给From账户加锁,也就是说如果两个交易都来自From账户,那么后来的会被先来的阻塞.但是来自不同账户的交易不会互相影响.
+		defer s.nonceLock.UnlockAddr(args.From) 	//defer使得在函数退出的时候nonceLock会自动解锁.
 	}
 
+	//设置默认参数.
 	// Set some sanity defaults and terminate on failure
 	if err := args.setDefaults(ctx, s.b); err != nil {
 		return common.Hash{}, err
 	}
+
+	//生成并返回交易对象.
 	// Assemble the transaction and sign with the wallet
 	tx := args.toTransaction()
 
+	//获得chainId.
 	var chainID *big.Int
 
 	//if config := s.b.ChainConfig(); config.IsEIP155(s.b.CurrentBlock().Number()) {
 	if config := s.b.ChainConfig(); config != nil {
-		chainID = config.ChainId
+		chainID = config.ChainId	//获得chainId.
 	}
 
+	//使用账户私钥给交易签名.如果出错则退出.返回已签名交易对象的指针.
 	signed, err := wallet.SignTx(account, tx, chainID)
 	if err != nil {
 		return common.Hash{}, err
 	}
+	//提交已签名交易到交易池.
 	return submitTransaction(ctx, s.b, signed)
 }
 

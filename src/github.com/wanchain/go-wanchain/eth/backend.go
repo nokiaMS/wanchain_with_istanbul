@@ -88,7 +88,7 @@ type Ethereum struct {
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
-	etherbase common.Address
+	etherbase common.Address	//挖矿使用的账号.
 
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
@@ -315,7 +315,9 @@ func (s *Ethereum) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
+//返回挖矿要使用的账号.
 func (s *Ethereum) Etherbase() (eb common.Address, err error) {
+	//获得挖矿使用的账号.
 	s.lock.RLock()
 	etherbase := s.etherbase
 	s.lock.RUnlock()
@@ -346,7 +348,7 @@ func (self *Ethereum) SetEtherbase(etherbase common.Address) {
 
 //开始挖矿.
 func (s *Ethereum) StartMining(local bool) error {
-	eb, err := s.Etherbase()
+	eb, err := s.Etherbase()	//获得挖矿要使用的账号.
 	if err != nil {
 		log.Error("Cannot start mining without etherbase", "err", err)
 		return fmt.Errorf("etherbase missing: %v", err)

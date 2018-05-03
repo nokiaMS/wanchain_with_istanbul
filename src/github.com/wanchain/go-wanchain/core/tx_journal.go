@@ -88,6 +88,7 @@ func (journal *txJournal) load(add func(*types.Transaction) error) error {
 }
 
 // insert adds the specified transaction to the local disk journal.
+//把指定交易添加到本地磁盘日志中.
 func (journal *txJournal) insert(tx *types.Transaction) error {
 	if journal.writer == nil {
 		return errNoActiveJournal

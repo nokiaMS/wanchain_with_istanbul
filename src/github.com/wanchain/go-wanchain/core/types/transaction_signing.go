@@ -59,12 +59,17 @@ func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 }
 
 // SignTx signs the transaction using the given signer and private key
+//给交易签名.
+//tx: 交易.
+//s: 签名者.
+//prv: 私钥.
 func SignTx(tx *Transaction, s Signer, prv *ecdsa.PrivateKey) (*Transaction, error) {
-	h := s.Hash(tx)
-	sig, err := crypto.Sign(h[:], prv)
+	h := s.Hash(tx) //计算交易的hash值.
+	sig, err := crypto.Sign(h[:], prv)	//用私钥给交易的hash值签名.
 	if err != nil {
 		return nil, err
 	}
+	//返回签名后的新交易对象指针.
 	return tx.WithSignature(s, sig)
 }
 

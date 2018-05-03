@@ -67,22 +67,23 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 //go:generate gencodec -type Header -field-override headerMarshaling -out gen_header_json.go
 
 // Header represents a block header in the Ethereum blockchain.
+//区块头结构体.
 type Header struct {
-	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
+	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`		//当前区块的父区块.
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
-	Coinbase    common.Address `json:"miner"            gencodec:"required"`
+	Coinbase    common.Address `json:"miner"            gencodec:"required"`		//挖出此区块的账号.
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
 	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
 	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
-	Number      *big.Int       `json:"number"           gencodec:"required"`
+	Number      *big.Int       `json:"number"           gencodec:"required"`		//当前区块的Number是其parent区块的值+1
 	GasLimit    *big.Int       `json:"gasLimit"         gencodec:"required"`
 	GasUsed     *big.Int       `json:"gasUsed"          gencodec:"required"`
-	Time        *big.Int       `json:"timestamp"        gencodec:"required"`
-	Extra       []byte         `json:"extraData"        gencodec:"required"`
+	Time        *big.Int       `json:"timestamp"        gencodec:"required"`		//区块被挖出的时间.
+	Extra       []byte         `json:"extraData"        gencodec:"required"`		//区块的extraData数据.
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
-	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`
+	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`		//区块的nonce值.
 }
 
 // field type overrides for gencodec
@@ -144,10 +145,11 @@ type Body struct {
 }
 
 // Block represents an entire block in the Ethereum blockchain.
+//区块结构体.
 type Block struct {
-	header       *Header
+	header       *Header	//区块头指针
 	uncles       []*Header
-	transactions Transactions
+	transactions Transactions	//区块中包含的交易列表.
 
 	// caches
 	hash atomic.Value
