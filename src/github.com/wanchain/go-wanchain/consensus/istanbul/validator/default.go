@@ -53,28 +53,33 @@ type defaultSet struct {
 	selector    istanbul.ProposalSelector	//proposer选举方法.
 }
 
-//创建validator default set.
+//创建default validator set.
 //		addrs:	validators的地址.
 //		policy:	proposer选举策略.
 //		返回:	defaultSet结构.
 func newDefaultSet(addrs []common.Address, policy istanbul.ProposerPolicy) *defaultSet {
-	valSet := &defaultSet{}
+	valSet := &defaultSet{}	//空defaultSet.
 
-	valSet.policy = policy
+	valSet.policy = policy	//设置选举策略。
+
+	/* 把validators设置到defaultSet中。 */
 	// init validators
 	valSet.validators = make([]istanbul.Validator, len(addrs))
 	for i, addr := range addrs {
 		valSet.validators[i] = New(addr)
 	}
 	// sort validator
-	sort.Sort(valSet.validators)
+	sort.Sort(valSet.validators)	//排序。
+
+	//设置最初的proposer。
 	// init proposer
 	if valSet.Size() > 0 {
 		//默认的proposer为排序后的validators的第一个.
 		valSet.proposer = valSet.GetByIndex(0)
 	}
-	//设置proposer选举方法为roundRobin.
-	valSet.selector = roundRobinProposer
+
+	valSet.selector = roundRobinProposer //设置proposer选举方法为roundRobin.
+	/* 如果策略是Sticky，那么设置 proposer selector为stickyProposer。*/
 	if policy == istanbul.Sticky {
 		valSet.selector = stickyProposer
 	}
@@ -128,10 +133,12 @@ func (valSet *defaultSet) IsProposer(address common.Address) bool {
 }
 
 //計算新的proposer.
+//lastProposer: 当前proposer地址，
+//round: 轮次
 func (valSet *defaultSet) CalcProposer(lastProposer common.Address, round uint64) {
-	valSet.validatorMu.RLock()
-	defer valSet.validatorMu.RUnlock()  //採用defer释放锁是一个好的方法.
-	valSet.proposer = valSet.selector(valSet, lastProposer, round)
+	valSet.validatorMu.RLock()	//加读锁。
+	defer valSet.validatorMu.RUnlock()  //採用defer释放锁是一个好的方法，函数退出时释放锁。
+	valSet.proposer = valSet.selector(valSet, lastProposer, round)	//选出新的proposer.选举策略在newDefaultSet()时就设置好了。
 }
 
 //计算proposer选举时候使用的seed.
@@ -143,9 +150,9 @@ func calcSeed(valSet istanbul.ValidatorSet, proposer common.Address, round uint6
 	return uint64(offset) + round
 }
 
-//获得一个空的地址结构,通常用于初始化.
+//判断地址是否为空，为空返回true，不为空返回false.
 func emptyAddress(addr common.Address) bool {
-	return addr == common.Address{}
+	return addr == common.Address{}	//返回true/false.
 }
 
 //用roundRobin的方法选举proposer, 默认proposer选举的方法是使用的roundRobin.
@@ -154,9 +161,12 @@ func emptyAddress(addr common.Address) bool {
 //		round:	round编号.
 //		结果:	返回选举出来的proposer.
 func roundRobinProposer(valSet istanbul.ValidatorSet, proposer common.Address, round uint64) istanbul.Validator {
+	/* 没有validator，返回空。*/
 	if valSet.Size() == 0 {
 		return nil
 	}
+
+	/* 设置种子的数值。 */
 	seed := uint64(0)
 	if emptyAddress(proposer) {
 		seed = round

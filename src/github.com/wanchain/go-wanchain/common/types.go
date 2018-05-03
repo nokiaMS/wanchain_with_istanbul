@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	HashLength     = 32
+	HashLength     = 32	//单位为字节。
 	AddressLength  = 20
 	WAddressLength = 66
 )
@@ -39,7 +39,7 @@ var (
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
-type Hash [HashLength]byte
+type Hash [HashLength]byte		//Hash是32字节数组。
 
 func BytesToHash(b []byte) Hash {
 	var h Hash

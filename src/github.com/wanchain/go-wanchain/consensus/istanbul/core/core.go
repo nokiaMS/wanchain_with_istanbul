@@ -63,7 +63,7 @@ type core struct {
 	config  *istanbul.Config
 	address common.Address
 	state   State		//当前istanbul consensus的状态. (request, preprepare, prepare, commit.)
-	logger  log.Logger
+	logger  log.Logger	//日志对象。
 
 	backend               istanbul.Backend
 	events                *event.TypeMuxSubscription
@@ -78,7 +78,7 @@ type core struct {
 	backlogs   map[istanbul.Validator]*prque.Prque
 	backlogsMu *sync.Mutex
 
-	current   *roundState
+	current   *roundState	//roundState对象。
 	handlerWg *sync.WaitGroup
 
 	roundChangeSet   *roundChangeSet
@@ -184,7 +184,9 @@ func (c *core) commit() {
 //启动istanbul consensus状态机。
 // startNewRound starts a new round. if round equals to 0, it means to starts a new sequence
 func (c *core) startNewRound(round *big.Int) {
-	var logger log.Logger
+	var logger log.Logger	//定义一个Logger对象。
+
+	/* 如果当前roundState对象为空则打印-1,0；如果不为空打印当前round和sequence.	*/
 	if c.current == nil {
 		logger = c.logger.New("old_round", -1, "old_seq", 0)
 	} else {

@@ -148,7 +148,7 @@ type Body struct {
 //区块结构体.
 type Block struct {
 	header       *Header	//区块头指针
-	uncles       []*Header
+	uncles       []*Header	//叔块，即不在主链上的孤块。
 	transactions Transactions	//区块中包含的交易列表.
 
 	// caches

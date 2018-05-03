@@ -77,13 +77,13 @@ type backend struct {
 	core             istanbulCore.Engine
 	logger           log.Logger
 	db               ethdb.Database
-	chain            consensus.ChainReader
-	currentBlock     func() *types.Block
-	hasBadBlock      func(hash common.Hash) bool
+	chain            consensus.ChainReader	//在header或者uncle验证的过程中访问区块链的方法。
+	currentBlock     func() *types.Block	//函数指针，返回当前块。
+	hasBadBlock      func(hash common.Hash) bool	//是否有坏块，函数指针，返回true/false.
 
 	// the channels for istanbul engine notifications
-	commitCh          chan *types.Block
-	proposedBlockHash common.Hash
+	commitCh          chan *types.Block		//用于istanbul engine notifications。
+	proposedBlockHash common.Hash	//待表决块Hash.
 	sealMu            sync.Mutex
 	coreStarted       bool	//共识算法是否已经开始的标志，true：已经开始，false：没有开始。
 	coreMu            sync.RWMutex

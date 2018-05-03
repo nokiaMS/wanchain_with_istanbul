@@ -46,8 +46,8 @@ func newRoundState(view *istanbul.View, validatorSet istanbul.ValidatorSet, lock
 //roundState存储consensus state.
 // roundState stores the consensus state
 type roundState struct {
-	round          *big.Int
-	sequence       *big.Int
+	round          *big.Int		//当前round值。
+	sequence       *big.Int		//当前序号。
 	Preprepare     *istanbul.Preprepare
 	Prepares       *messageSet
 	Commits        *messageSet
@@ -115,11 +115,12 @@ func (s *roundState) SetRound(r *big.Int) {
 	s.round = new(big.Int).Set(r)
 }
 
+//返回当前round值。
 func (s *roundState) Round() *big.Int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.RLock()	//加锁。
+	defer s.mu.RUnlock()	//函数退出后解锁。
 
-	return s.round
+	return s.round	//返回round值。
 }
 
 func (s *roundState) SetSequence(seq *big.Int) {
@@ -129,11 +130,12 @@ func (s *roundState) SetSequence(seq *big.Int) {
 	s.sequence = seq
 }
 
+//返回当前序号值。
 func (s *roundState) Sequence() *big.Int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.RLock()	//加读锁。
+	defer s.mu.RUnlock()	//函数退出时释放锁。
 
-	return s.sequence
+	return s.sequence 	//获得序号值。
 }
 
 func (s *roundState) LockHash() {

@@ -482,30 +482,30 @@ func (sb *backend) APIs(chain consensus.ChainReader) []rpc.API {
 //Start()函数实现了Istanbul.Start()接口。
 // Start implements consensus.Istanbul.Start
 func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error {
-	sb.coreMu.Lock()
+	sb.coreMu.Lock()	//加锁。
 	defer sb.coreMu.Unlock() //defer修饰的函数在包含defer的函数返回前才执行，但是被defer修饰的函数如果有参数，那么参数在定义defer函数的时候就被确定了。
 	                          //类似于这里的实现，在加锁之后马上通过defer定义解锁操作，避免了忘记解锁引起死锁的问题，是个好的习惯。
-	if sb.coreStarted {
-		return istanbul.ErrStartedEngine
+	if sb.coreStarted {		//如果istanbul engine已经开始了，那么返回错误。
+		return istanbul.ErrStartedEngine	//返回错误"started engine"
 	}
 
 	// clear previous data
-	sb.proposedBlockHash = common.Hash{}
-	if sb.commitCh != nil {
-		close(sb.commitCh)
+	sb.proposedBlockHash = common.Hash{}	//构造一个空的Hash.
+	if sb.commitCh != nil {	//channel不为空则关闭。
+		close(sb.commitCh)	//关闭channel.
 	}
-	sb.commitCh = make(chan *types.Block, 1)
+	sb.commitCh = make(chan *types.Block, 1) 	//重新创建一个channel,异步channel,缓冲区为1.
 
-	sb.chain = chain
-	sb.currentBlock = currentBlock
-	sb.hasBadBlock = hasBadBlock
+	sb.chain = chain	//chain是访问区块链的方法接口实现。
+	sb.currentBlock = currentBlock	//返回当前块的函数指针。
+	sb.hasBadBlock = hasBadBlock	//是否有坏块的函数指针。
 
-	if err := sb.core.Start(); err != nil {	//开始共识算法。
-		return err
+	if err := sb.core.Start(); err != nil {	//开始共识算法，出错返回。
+		return err	//返回错误。
 	}
 
 	sb.coreStarted = true 	//表示共识算法已经开始了。
-	return nil
+	return nil	//返回空表示无错误。
 }
 
 // Stop implements consensus.Istanbul.Stop
