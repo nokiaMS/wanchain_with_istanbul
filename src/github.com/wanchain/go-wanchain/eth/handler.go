@@ -48,7 +48,7 @@ const (
 
 	// txChanSize is the size of channel listening to TxPreEvent.
 	// The number is referenced from the size of tx pool.
-	txChanSize = 4096
+	txChanSize = 4096	//交易
 )
 
 var (
@@ -63,6 +63,7 @@ func errResp(code errCode, format string, v ...interface{}) error {
 	return fmt.Errorf("%v - %v", code, fmt.Sprintf(format, v...))
 }
 
+//ProtocolManager是管理node之间p2p通信的顶层结构。
 type ProtocolManager struct {
 	networkId uint64
 
@@ -73,17 +74,17 @@ type ProtocolManager struct {
 	blockchain  *core.BlockChain
 	chaindb     ethdb.Database
 	chainconfig *params.ChainConfig
-	maxPeers    int
+	maxPeers    int		//p2p的最大通信对端数。
 
-	downloader *downloader.Downloader
-	fetcher    *fetcher.Fetcher
-	peers      *peerSet
+	downloader *downloader.Downloader  //（用于发送）负责所有向相邻个体主动发起的同步流程。
+	fetcher    *fetcher.Fetcher  //（用于接收）负责累积所有其他个体(有可能是peer，也有可能节点内的其他模块)发送来的有关新数据的宣布消息，并在自身对照后，安排相应的获取请求。
+	peers      *peerSet		//peers列表。
 
 	SubProtocols []p2p.Protocol
 
 	eventMux      *event.TypeMux
-	txCh          chan core.TxPreEvent
-	txSub         event.Subscription
+	txCh          chan core.TxPreEvent	//交易通知接收通道，异步，buffer为4096
+	txSub         event.Subscription	//订阅交易通知，
 	minedBlockSub *event.TypeMuxSubscription
 
 	// channels for fetcher, syncer, txsyncLoop
@@ -210,21 +211,23 @@ func (pm *ProtocolManager) removePeer(id string) {
 	}
 }
 
+//p2p通信过程的全面启动。
 func (pm *ProtocolManager) Start(maxPeers int) {
-	pm.maxPeers = maxPeers
+	pm.maxPeers = maxPeers  //当前节点的最大对端数。
 
 	// broadcast transactions
-	pm.txCh = make(chan core.TxPreEvent, txChanSize)
-	pm.txSub = pm.txpool.SubscribeTxPreEvent(pm.txCh)
-	go pm.txBroadcastLoop()
+	pm.txCh = make(chan core.TxPreEvent, txChanSize)	//构建交易通知通道,异步通信，buffer为4096
+	pm.txSub = pm.txpool.SubscribeTxPreEvent(pm.txCh)	//订阅交易通知。
+	go pm.txBroadcastLoop()	//广播交易对象，一旦接收到有关新交易的事件，会立即调用BroadcastTx()函数广播给那些尚无该交易对象的相邻个体。
 
 	// broadcast mined blocks
-	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})
-	go pm.minedBroadcastLoop()
+	pm.minedBlockSub = pm.eventMux.Subscribe(core.NewMinedBlockEvent{})  //广播新挖掘出的区块。
+	go pm.minedBroadcastLoop()  //持续等待本个体的新挖掘出区块事件，然后立即广播给需要的相邻个体。
 
 	// start sync handlers
-	go pm.syncer()
-	go pm.txsyncLoop()
+	go pm.syncer()  //定时与相邻个体进行区块全链的强制同步。
+	                // syncer()首先启动fetcher成员，然后进入一个无限循环，每次循环中都会向相邻peer列表中“最优”的那个peer作一次区块全链同步。
+	go pm.txsyncLoop()  //将新出现的交易对象均匀的同步给相邻个体。
 }
 
 func (pm *ProtocolManager) Stop() {

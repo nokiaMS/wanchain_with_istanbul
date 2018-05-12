@@ -60,6 +60,7 @@ type LesServer interface {
 }
 
 // Ethereum implements the Ethereum full node service.
+//Ethereum对象实现了以太坊全节点服务。
 type Ethereum struct {
 	config      *Config
 	chainConfig *params.ChainConfig
@@ -71,7 +72,7 @@ type Ethereum struct {
 	// Handlers
 	txPool          *core.TxPool
 	blockchain      *core.BlockChain
-	protocolManager *ProtocolManager
+	protocolManager *ProtocolManager	//管理node之间p2p通信的顶层结构。
 	lesServer       LesServer
 
 	// DB interfaces
@@ -407,6 +408,7 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 
 // Start implements node.Service, starting all internal goroutines needed by the
 // Ethereum protocol implementation.
+//以太坊节点全面开始启动了。
 func (s *Ethereum) Start(srvr *p2p.Server) error {
 	// Start the bloom bits servicing goroutines
 	s.startBloomHandlers()
@@ -423,7 +425,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 		}
 	}
 	// Start the networking layer and the light server if requested
-	s.protocolManager.Start(maxPeers)
+	s.protocolManager.Start(maxPeers)	//次Start()全面开启了node的p2p通信。
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}

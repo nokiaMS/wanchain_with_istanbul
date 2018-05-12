@@ -142,6 +142,7 @@ type Config struct {
 }
 
 // Server manages all peer connections.
+//所有peer与己方的连接都是通过p2p.Server来管理的。
 type Server struct {
 	// Config fields may not be modified while the server is running.
 	Config

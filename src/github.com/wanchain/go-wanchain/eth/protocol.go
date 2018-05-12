@@ -95,17 +95,18 @@ var errorToString = map[int]string{
 	ErrSuspendedPeer:           "Suspended peer",
 }
 
+//txPool接口类型。
 type txPool interface {
 	// AddRemotes should add the given transactions to the pool.
-	AddRemotes([]*types.Transaction) error
+	AddRemotes([]*types.Transaction) error  //把参数中给定的交易列表加入txPool中。
 
 	// Pending should return pending transactions.
 	// The slice should be modifiable by the caller.
-	Pending() (map[common.Address]types.Transactions, error)
+	Pending() (map[common.Address]types.Transactions, error)  //返回pending的交易。
 
 	// SubscribeTxPreEvent should return an event subscription of
 	// TxPreEvent and send events to the given channel.
-	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription
+	SubscribeTxPreEvent(chan<- core.TxPreEvent) event.Subscription  //订阅TxPreEvent事件。
 }
 
 // statusData is the network packet for the status message.
