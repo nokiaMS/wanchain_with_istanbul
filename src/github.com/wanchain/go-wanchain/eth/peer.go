@@ -122,6 +122,7 @@ func (p *peer) MarkBlock(hash common.Hash) {
 
 // MarkTransaction marks a transaction as known for the peer, ensuring that it
 // will never be propagated to this particular peer.
+//标记交易对当前的peer已知,这样可以防止此交易后续再被广播到这个节点.
 func (p *peer) MarkTransaction(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known transaction hash
 	for p.knownTxs.Size() >= maxKnownTxs {

@@ -68,7 +68,7 @@ type ProtocolManager struct {
 	networkId uint64
 
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing)
+	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing) //是否可以接收及处理消息的标志.
 
 	txpool      txPool
 	blockchain  *core.BlockChain
@@ -321,16 +321,18 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 // handleMsg is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
+//当peer发来消息的时候,handleMsg()函数就用来处理接收到的消息.
+//当node广播交易之后,与其相连的peer就是通过这个函数来获得交易并进行后续处理的.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
-	msg, err := p.rw.ReadMsg()
+	msg, err := p.rw.ReadMsg() //读取消息.
 	if err != nil {
 		return err
 	}
 	if msg.Size > ProtocolMaxMsgSize {
 		return errResp(ErrMsgTooLarge, "%v > %v", msg.Size, ProtocolMaxMsgSize)
 	}
-	defer msg.Discard()
+	defer msg.Discard() //消息在函数结束就被销毁了.
 
 	if handler, ok := pm.engine.(consensus.Handler); ok {
 		pubKey, err := p.ID().Pubkey()
@@ -345,6 +347,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 	}
 
 	// Handle the message depending on its contents
+	//根据消息类型来处理消息.
 	switch {
 	case msg.Code == StatusMsg:
 		// Status messages should never arrive after the handshake
@@ -674,8 +677,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-	case msg.Code == TxMsg:
+	case msg.Code == TxMsg:	//处理从peer发送过来的交易.
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
+		//判断当前是否可以接受交易,如果可以那么就继续处理,如果不可以则直接跳出case.
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
 			break
 		}
@@ -684,13 +688,15 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&txs); err != nil {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
+		//如果当前能够处理交易的话,那么处理每一个传递过来的交易.
 		for i, tx := range txs {
 			// Validate and mark the remote transaction
 			if tx == nil {
 				return errResp(ErrDecode, "transaction %d is nil", i)
 			}
-			p.MarkTransaction(tx.Hash())
+			p.MarkTransaction(tx.Hash()) //把交易消息标记为p对应的peer已经知道了这交易这样就会防止此交易再次被广播给peer p.
 		}
+		//把交易放入到本地的txpool中.
 		pm.txpool.AddRemotes(txs)
 
 	default:

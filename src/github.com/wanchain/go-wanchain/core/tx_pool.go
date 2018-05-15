@@ -799,6 +799,7 @@ func (pool *TxPool) AddLocals(txs []*types.Transaction) error {
 // AddRemotes enqueues a batch of transactions into the pool if they are valid.
 // If the senders are not among the locally tracked ones, full pricing constraints
 // will apply.
+//把peer传递过来的一批交易放到本地txpool中.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) error {
 	return pool.addTxs(txs, false)
 }
@@ -824,6 +825,7 @@ func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 }
 
 // addTxs attempts to queue a batch of transactions if they are valid.
+//把交易放入到txpool中.
 func (pool *TxPool) addTxs(txs []*types.Transaction, local bool) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()

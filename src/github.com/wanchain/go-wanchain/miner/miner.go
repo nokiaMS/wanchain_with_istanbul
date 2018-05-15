@@ -57,6 +57,7 @@ type Miner struct {
 	shouldStart int32 // should start indicates whether we should start after sync
 }
 
+//构造一个新的miner对象.
 func New(eth Backend, config *params.ChainConfig, mux *event.TypeMux, engine consensus.Engine) *Miner {
 	miner := &Miner{
 		eth:      eth,

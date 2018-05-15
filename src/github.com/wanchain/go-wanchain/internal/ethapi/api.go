@@ -394,8 +394,10 @@ func (s *PrivateAccountAPI) LockAccount(addr common.Address) bool {
 }
 
 // SendTransaction will create a transaction from the given arguments and
-// tries to sign it with the key associated with args.To. If the given passwd isn't
+// tries to sign it with the key associated with args.To (此处的注释写错了,应该是from). If the given passwd isn't
 // able to decrypt the key it fails.
+//通过web3 console执行eth.sendTransaction()的时候会调用此函数SendTransaction().
+//这个函数首先创建交易对象,然后给交易签名,如果给定密码错误那么执行失败.
 func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs, passwd string) (common.Hash, error) {
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
@@ -426,6 +428,7 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		chainID = config.ChainId
 	}
 
+	//用from的私钥给交易签名.
 	signed, err := wallet.SignTxWithPassphrase(account, passwd, tx, chainID)
 	if err != nil {
 		return common.Hash{}, err

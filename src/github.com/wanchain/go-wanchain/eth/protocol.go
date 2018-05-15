@@ -43,6 +43,7 @@ var ProtocolVersions = []uint{eth63, eth62}
 // Number of implemented message corresponding to different protocol versions.
 var ProtocolLengths = []uint64{17, 8}
 
+//最大消息是10K.
 const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a protocol message
 
 // eth protocol message codes
@@ -50,7 +51,7 @@ const (
 	// Protocol messages belonging to eth/62
 	StatusMsg          = 0x00
 	NewBlockHashesMsg  = 0x01
-	TxMsg              = 0x02
+	TxMsg              = 0x02		//交易消息.
 	GetBlockHeadersMsg = 0x03
 	BlockHeadersMsg    = 0x04
 	GetBlockBodiesMsg  = 0x05
@@ -98,7 +99,7 @@ var errorToString = map[int]string{
 //txPool接口类型。
 type txPool interface {
 	// AddRemotes should add the given transactions to the pool.
-	AddRemotes([]*types.Transaction) error  //把参数中给定的交易列表加入txPool中。
+	AddRemotes([]*types.Transaction) error  //把参数中给定的交易列表加入txPool中。这个交易列表是由peer传递过来的.
 
 	// Pending should return pending transactions.
 	// The slice should be modifiable by the caller.
