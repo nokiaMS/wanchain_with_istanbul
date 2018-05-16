@@ -33,7 +33,7 @@ var errBadChannel = errors.New("event: Subscribe argument does not have sendable
 //
 // The zero value is ready to use.
 type Feed struct {
-	once      sync.Once        // ensures that init only runs once
+	once      sync.Once        // ensures that init only runs once	//ocne对象只会被执行一次.
 	sendLock  chan struct{}    // sendLock has a one-element buffer and is empty when held.It protects sendCases.
 	removeSub chan interface{} // interrupts Send
 	sendCases caseList         // the active set of select cases used by Send
@@ -70,8 +70,9 @@ func (f *Feed) init() {
 //
 // The channel should have ample buffer space to avoid blocking other subscribers.
 // Slow subscribers are not dropped.
+//向feed增加一个通道. 后续的消息也会广播到这个通道中. 如果不想再接收消息,需要取消调用.
 func (f *Feed) Subscribe(channel interface{}) Subscription {
-	f.once.Do(f.init)
+	f.once.Do(f.init)	//初始化函数,只被执行一次.
 
 	chanval := reflect.ValueOf(channel)
 	chantyp := chanval.Type()

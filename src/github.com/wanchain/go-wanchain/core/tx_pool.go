@@ -445,6 +445,9 @@ func (pool *TxPool) Stop() {
 
 // SubscribeTxPreEvent registers a subscription of TxPreEvent and
 // starts sending event to the given channel.
+//订阅TxPreEvent事件.
+//ch: TxPreEvent类型的只读通道.
+//返回值: 事件订阅对象.
 func (pool *TxPool) SubscribeTxPreEvent(ch chan<- TxPreEvent) event.Subscription {
 	return pool.scope.Track(pool.txFeed.Subscribe(ch))
 }
