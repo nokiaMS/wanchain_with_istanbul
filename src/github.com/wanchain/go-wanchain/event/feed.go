@@ -68,7 +68,7 @@ func (f *Feed) init() {
 	f.removeSub = make(chan interface{})  //removeSub是一个空接口类型的通道，也就是能传递任意类型。
 	f.sendLock = make(chan struct{}, 1) //sendLock是一个空struct类型的异步通道，其buffer为1.
 	f.sendLock <- struct{}{}	//构造了一个 struct{}类型的对象，并发送到通道sendLock上去。此步骤后sendLock的发送端被阻塞。
-	f.sendCases = caseList{{Chan: reflect.ValueOf(f.removeSub), Dir: reflect.SelectRecv}}
+	f.sendCases = caseList{{Chan: reflect.ValueOf(f.removeSub)/*此处返回一个空值*/, Dir: reflect.SelectRecv /*接受通道*/}}
 }
 
 // Subscribe adds a channel to the feed. Future sends will be delivered on the channel
@@ -77,12 +77,13 @@ func (f *Feed) init() {
 // The channel should have ample buffer space to avoid blocking other subscribers.
 // Slow subscribers are not dropped.
 //向feed增加一个通道. 后续的消息也会广播到这个通道中. 如果不想再接收消息,需要取消调用.
+//添加的所有通道必须具有相同的类型， 添加的通道需要注意要有足够的空间以免阻塞其他调用者。
 func (f *Feed) Subscribe(channel interface{}) Subscription {
 	f.once.Do(f.init)	//初始化函数,只被执行一次.
 
-	chanval := reflect.ValueOf(channel)
-	chantyp := chanval.Type()
-	if chantyp.Kind() != reflect.Chan || chantyp.ChanDir()&reflect.SendDir == 0 {
+	chanval := reflect.ValueOf(channel) //获得参数的值（channel的指针）
+	chantyp := chanval.Type()	//获得参数的类型（应该是chan类型）
+	if chantyp.Kind() != reflect.Chan || chantyp.ChanDir()&reflect.SendDir == 0 { 	//如果传递的参数不是chan或者通道的方向不是SendDir则panic,程序退出。(应该把chan<-传递给SendDir,把<-chan传递给RecvDir)
 		panic(errBadChannel)
 	}
 	sub := &feedSub{feed: f, channel: chanval, err: make(chan error, 1)}
@@ -191,6 +192,7 @@ func (f *Feed) Send(value interface{}) (nsent int) {
 	return nsent
 }
 
+//订阅结构体。
 type feedSub struct {
 	feed    *Feed
 	channel reflect.Value
@@ -209,7 +211,7 @@ func (sub *feedSub) Err() <-chan error {
 	return sub.err
 }
 
-type caseList []reflect.SelectCase
+type caseList []reflect.SelectCase		//reflect.SelectCase描述了select中的单条case。
 
 // find returns the index of a case containing the given channel.
 func (cs caseList) find(channel interface{}) int {
