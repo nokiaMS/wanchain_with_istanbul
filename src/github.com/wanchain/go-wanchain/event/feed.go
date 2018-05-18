@@ -22,6 +22,7 @@ import (
 	"sync"
 )
 
+//错误信息。
 var errBadChannel = errors.New("event: Subscribe argument does not have sendable channel type")
 
 // Feed implements one-to-many subscriptions where the carrier of events is a channel.
@@ -31,9 +32,13 @@ var errBadChannel = errors.New("event: Subscribe argument does not have sendable
 // Subscribe operation. Subsequent calls to these methods panic if the type does not
 // match.
 //
+
+//Feed类型通过通道的方式实现了一对多的发布订阅机制。发送给Feed对象的消息会被同时传递到所有的订阅通道中。
+//Feed只能用于单一类型，这个类型决定于第一次发送或者订阅操作中使用的类型，如果后续的操作中使用的类型与第一次操作的类型不一致的话，那么会引起panic。
+
 // The zero value is ready to use.
 type Feed struct {
-	once      sync.Once        // ensures that init only runs once	//ocne对象只会被执行一次.
+	once      sync.Once        // ensures that init only runs once	//sync.Once对象只会被执行一次.
 	sendLock  chan struct{}    // sendLock has a one-element buffer and is empty when held.It protects sendCases.
 	removeSub chan interface{} // interrupts Send
 	sendCases caseList         // the active set of select cases used by Send
@@ -58,10 +63,11 @@ func (e feedTypeError) Error() string {
 	return "event: wrong type in " + e.op + " got " + e.got.String() + ", want " + e.want.String()
 }
 
+//Feed初始化。
 func (f *Feed) init() {
-	f.removeSub = make(chan interface{})
-	f.sendLock = make(chan struct{}, 1)
-	f.sendLock <- struct{}{}
+	f.removeSub = make(chan interface{})  //removeSub是一个空接口类型的通道，也就是能传递任意类型。
+	f.sendLock = make(chan struct{}, 1) //sendLock是一个空struct类型的异步通道，其buffer为1.
+	f.sendLock <- struct{}{}	//构造了一个 struct{}类型的对象，并发送到通道sendLock上去。此步骤后sendLock的发送端被阻塞。
 	f.sendCases = caseList{{Chan: reflect.ValueOf(f.removeSub), Dir: reflect.SelectRecv}}
 }
 
