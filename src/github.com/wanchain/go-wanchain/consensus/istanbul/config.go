@@ -33,7 +33,7 @@ type Config struct {
 
 var DefaultConfig = &Config{
 	RequestTimeout: 10000,
-	BlockPeriod:    1,
-	ProposerPolicy: RoundRobin,
+	BlockPeriod:    1,		//两个相邻块的时间戳间隔. 1秒.
+	ProposerPolicy: RoundRobin,	//proposer选择策略.
 	Epoch:          30000,
 }

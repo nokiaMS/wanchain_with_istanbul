@@ -367,8 +367,10 @@ func (sb *backend) Prepare(chain consensus.ChainReader, header *types.Header, mi
 	}
 	header.Extra = extra
 
+	//此处修改了时间,也就是ibft文档中所说的 "BLOCK_PERIOD: Minimum timestamp difference in seconds between two consecutive blocks."
 	// set header's timestamp
-	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(sb.config.BlockPeriod))
+	//设置时间戳为parent+1,如果当前时间比parent+1还新,那么设置为当前时间.
+	header.Time = new(big.Int).Add(parent.Time, new(big.Int).SetUint64(sb.config.BlockPeriod)) //设置时间戳为parent+1秒.
 	if header.Time.Int64() < time.Now().Unix() {
 		header.Time = big.NewInt(time.Now().Unix())
 	}
@@ -418,7 +420,7 @@ func (sb *backend) Seal(chain consensus.ChainReader, block *types.Block, stop <-
 	// wait for the timestamp of header, use this to adjust the block period
 	delay := time.Unix(block.Header().Time.Int64(), 0).Sub(now())
 	select {
-	case <-time.After(delay):
+	case <-time.After(delay):  //通過分析go的源代碼得知,如果delay小於0,則相當於delay = 0, 立即返回,沒有延時.
 	case <-stop:
 		return nil, nil
 	}

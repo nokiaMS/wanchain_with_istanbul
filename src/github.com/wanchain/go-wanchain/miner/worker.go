@@ -413,6 +413,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	return nil
 }
 
+//组装待挖掘区块.
 func (self *worker) commitNewWork() {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -421,13 +422,16 @@ func (self *worker) commitNewWork() {
 	self.currentMu.Lock()
 	defer self.currentMu.Unlock()
 
-	tstart := time.Now()
-	parent := self.chain.CurrentBlock()
+	tstart := time.Now()	//获得当前系统时间.
+	parent := self.chain.CurrentBlock()		//获得当前的链头区块.
 
-	tstamp := tstart.Unix()
+	tstamp := tstart.Unix()		//转换成时间戳格式,单位为秒.
+	//如果当前链头块的时间比当前时间还新,说明对当前node时间比较滞后了, 那么把时间戳设置为parent的时间戳加1,供后续比较使用.
 	if parent.Time().Cmp(new(big.Int).SetInt64(tstamp)) >= 0 {
 		tstamp = parent.Time().Int64() + 1
 	}
+
+	//链头比当前时间太超前的话,则此节点需要sleep一段时间之后再出块.
 	// this will ensure we're not going off too far in the future
 	if now := time.Now().Unix(); tstamp > now+1 {
 		wait := time.Duration(tstamp-now) * time.Second
@@ -435,19 +439,21 @@ func (self *worker) commitNewWork() {
 		time.Sleep(wait)
 	}
 
-	num := parent.Number()
-	header := &types.Header{
-		ParentHash: parent.Hash(),
-		Number:     num.Add(num, common.Big1),
+	num := parent.Number()	//获得parent Block编号.
+	header := &types.Header{	//生成一个新的区块头.
+		ParentHash: parent.Hash(),	//parent区块的hash.
+		Number:     num.Add(num, common.Big1),	// 返回parent的Number +1.
 		GasLimit:   core.CalcGasLimit(parent),
 		GasUsed:    new(big.Int),
 		Extra:      self.extra,
-		Time:       big.NewInt(tstamp),
+		Time:       big.NewInt(tstamp),		//出块时间.
 	}
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
 	}
+
+	//调用了istanbul的Prepare()函数.
 	if err := self.engine.Prepare(self.chain, header, atomic.LoadInt32(&self.mining) == 1); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
