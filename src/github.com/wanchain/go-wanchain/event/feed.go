@@ -44,9 +44,9 @@ type Feed struct {
 	sendCases caseList         // the active set of select cases used by Send
 
 	// The inbox holds newly subscribed channels until they are added to sendCases.
-	mu     sync.Mutex
-	inbox  caseList
-	etype  reflect.Type
+	mu     sync.Mutex	//操作inbox，etype时需要加锁。
+	inbox  caseList		//selectCase列表。
+	etype  reflect.Type	//反射的数据类型。
 	closed bool
 }
 
@@ -54,11 +54,13 @@ type Feed struct {
 // sendCases[0] is a SelectRecv case for the removeSub channel.
 const firstSubSendCase = 1
 
+//feed type 错误。
 type feedTypeError struct {
 	got, want reflect.Type
 	op        string
 }
 
+//把feed error错误转换成字符串。
 func (e feedTypeError) Error() string {
 	return "event: wrong type in " + e.op + " got " + e.got.String() + ", want " + e.want.String()
 }
@@ -86,21 +88,25 @@ func (f *Feed) Subscribe(channel interface{}) Subscription {
 	if chantyp.Kind() != reflect.Chan || chantyp.ChanDir()&reflect.SendDir == 0 { 	//如果传递的参数不是chan或者通道的方向不是SendDir则panic,程序退出。(应该把chan<-传递给SendDir,把<-chan传递给RecvDir)
 		panic(errBadChannel)
 	}
+	//从参数中构造一个订阅对象。
 	sub := &feedSub{feed: f, channel: chanval, err: make(chan error, 1)}
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	//feed类型必须和数据类型相同，否则报错。
 	if !f.typecheck(chantyp.Elem()) {
 		panic(feedTypeError{op: "Subscribe", got: chantyp, want: reflect.ChanOf(reflect.SendDir, f.etype)})
 	}
 	// Add the select case to the inbox.
 	// The next Send will add it to f.sendCases.
+	//send类型的selectCase。
 	cas := reflect.SelectCase{Dir: reflect.SelectSend, Chan: chanval}
-	f.inbox = append(f.inbox, cas)
-	return sub
+	f.inbox = append(f.inbox, cas)	//添加到feed的selectCase列表中。
+	return sub //返回订阅对象。
 }
 
 // note: callers must hold f.mu
+//判断数据类型和通道类型是否相同，相同返回true，不同返回false.
 func (f *Feed) typecheck(typ reflect.Type) bool {
 	if f.etype == nil {
 		f.etype = typ
@@ -109,6 +115,7 @@ func (f *Feed) typecheck(typ reflect.Type) bool {
 	return f.etype == typ
 }
 
+//把一个订阅对象从订阅列表中移出。
 func (f *Feed) remove(sub *feedSub) {
 	// Delete from inbox first, which covers channels
 	// that have not been added to f.sendCases yet.
@@ -134,9 +141,10 @@ func (f *Feed) remove(sub *feedSub) {
 
 // Send delivers to all subscribed channels simultaneously.
 // It returns the number of subscribers that the value was sent to.
+//发送消息给所有订阅对象，返回send成功的sub数量。
 func (f *Feed) Send(value interface{}) (nsent int) {
-	f.once.Do(f.init)
-	<-f.sendLock
+	f.once.Do(f.init)	//只执行一次。
+	<-f.sendLock	//允许发送消息。
 
 	// Add new cases from the inbox after taking the send lock.
 	f.mu.Lock()
@@ -146,12 +154,13 @@ func (f *Feed) Send(value interface{}) (nsent int) {
 
 	// Set the sent value on all channels.
 	rvalue := reflect.ValueOf(value)
+	//如果要发送数据的类型与通道的类型不同，那么阻塞发送，报错。
 	if !f.typecheck(rvalue.Type()) {
 		f.sendLock <- struct{}{}
 		panic(feedTypeError{op: "Send", got: rvalue.Type(), want: f.etype})
 	}
 	for i := firstSubSendCase; i < len(f.sendCases); i++ {
-		f.sendCases[i].Send = rvalue
+		f.sendCases[i].Send = rvalue	//给每个通道设置要发送的值。
 	}
 
 	// Send until all channels except removeSub have been chosen.
@@ -194,25 +203,28 @@ func (f *Feed) Send(value interface{}) (nsent int) {
 
 //订阅结构体。
 type feedSub struct {
-	feed    *Feed
-	channel reflect.Value
-	errOnce sync.Once
-	err     chan error
+	feed    *Feed	//订阅关联的feed。
+	channel reflect.Value	//订阅的channel。
+	errOnce sync.Once	//syncOnce只执行一次。
+	err     chan error	//err是error类型的channel.
 }
 
+//解除订阅。
 func (sub *feedSub) Unsubscribe() {
 	sub.errOnce.Do(func() {
 		sub.feed.remove(sub)
-		close(sub.err)
+		close(sub.err)	//关闭通道。
 	})
 }
 
+//返回错误信息对象。
 func (sub *feedSub) Err() <-chan error {
 	return sub.err
 }
 
 type caseList []reflect.SelectCase		//reflect.SelectCase描述了select中的单条case。
 
+//查找通道对应索引。
 // find returns the index of a case containing the given channel.
 func (cs caseList) find(channel interface{}) int {
 	for i, cas := range cs {
@@ -224,6 +236,7 @@ func (cs caseList) find(channel interface{}) int {
 }
 
 // delete removes the given case from cs.
+//从selectCase列表中删除指定的selectCase。
 func (cs caseList) delete(index int) caseList {
 	return append(cs[:index], cs[index+1:]...)
 }

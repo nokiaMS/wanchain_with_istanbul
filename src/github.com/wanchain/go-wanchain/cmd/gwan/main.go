@@ -139,12 +139,13 @@ var (
 	}
 )
 
+//init()函数是在main()函数开始之前就运行了。
 func init() {
 	// Initialize the CLI app and start Geth
-	app.Action = geth
+	app.Action = geth	//应用程序要运行的函数。
 	app.HideVersion = true // we have a command to print the version
 	app.Copyright = "Copyright 2018-2023 The go-wanchain Authors"
-	app.Commands = []cli.Command{
+	app.Commands = []cli.Command{	//geth程序支持的子命令列表。
 		// See chaincmd.go:
 		initCommand,
 		importCommand,
@@ -171,26 +172,29 @@ func init() {
 		// See config.go
 		dumpConfigCommand,
 	}
-	sort.Sort(cli.CommandsByName(app.Commands))
+	sort.Sort(cli.CommandsByName(app.Commands))	//子命令列表按照字母顺序排序。
 
+	//app支持的命令行参数。
 	app.Flags = append(app.Flags, nodeFlags...)
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
 	app.Flags = append(app.Flags, whisperFlags...)
 
+	//上下文准备好后，子命令准备好之前需要运行的函数。
 	app.Before = func(ctx *cli.Context) error {
-		runtime.GOMAXPROCS(runtime.NumCPU())
+		runtime.GOMAXPROCS(runtime.NumCPU())	//设置最大进程数为cpu数。
 		if err := debug.Setup(ctx); err != nil {
 			return err
 		}
 		// Start system runtime metrics collection
-		go metrics.CollectProcessMetrics(3 * time.Second)
+		go metrics.CollectProcessMetrics(3 * time.Second)	//单独协程收集进程运行信息。
 
 		utils.SetupNetwork(ctx)
 		return nil
 	}
 
+	//上下文准备好，子命令运行完成之后需要执行的命令。
 	app.After = func(ctx *cli.Context) error {
 		debug.Exit()
 		console.Stdin.Close() // Resets terminal mode.
@@ -198,7 +202,9 @@ func init() {
 	}
 }
 
+//程序开始运行。
 func main() {
+	//os.Args获得命令行传递过来的参数， app.Run开始运行geth函数。
 	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -208,10 +214,11 @@ func main() {
 // geth is the main entry point into the system if no special subcommand is ran.
 // It creates a default node based on the command line arguments and runs it in
 // blocking mode, waiting for it to be shut down.
+//创建并启动node。
 func geth(ctx *cli.Context) error {
-	node := makeFullNode(ctx)
-	startNode(ctx, node)
-	node.Wait()
+	node := makeFullNode(ctx) //创建一个full node。
+	startNode(ctx, node)	//启动node。
+	node.Wait()		//等待，知道geth程序退出。
 	return nil
 }
 

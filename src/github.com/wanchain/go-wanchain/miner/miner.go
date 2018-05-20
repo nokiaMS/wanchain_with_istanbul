@@ -43,6 +43,7 @@ type Backend interface {
 }
 
 // Miner creates blocks and searches for proof-of-work values.
+//Miner类型
 type Miner struct {
 	mux *event.TypeMux
 

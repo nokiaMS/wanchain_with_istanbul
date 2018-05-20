@@ -359,6 +359,7 @@ func (c *Config) parsePersistentNodes(path string) []*discover.Node {
 	return nodes
 }
 
+//构造account manager.
 func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
 	scryptN := keystore.StandardScryptN
 	scryptP := keystore.StandardScryptP
@@ -412,5 +413,6 @@ func makeAccountManager(conf *Config) (*accounts.Manager, string, error) {
 			backends = append(backends, trezorhub)
 		}
 	}
+	//创建accounts manager.
 	return accounts.NewManager(backends...), ephemeral, nil
 }

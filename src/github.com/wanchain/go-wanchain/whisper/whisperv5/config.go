@@ -21,6 +21,7 @@ type Config struct {
 	MinimumAcceptedPOW float64 `toml:",omitempty"`
 }
 
+//whisper默认配置。
 var DefaultConfig = Config{
 	MaxMessageSize:     DefaultMaxMessageSize,
 	MinimumAcceptedPOW: DefaultMinimumPoW,

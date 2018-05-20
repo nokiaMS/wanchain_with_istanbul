@@ -40,9 +40,10 @@ type Manager struct {
 
 // NewManager creates a generic account manager to sign transaction via various
 // supported backends.
+//accounts manager主要用来给交易签名。
 func NewManager(backends ...Backend) *Manager {
 	// Subscribe to wallet notifications from all backends
-	updates := make(chan WalletEvent, 4*len(backends))
+	updates := make(chan WalletEvent, 4*len(backends))	//WalletEvent channel
 
 	subs := make([]event.Subscription, len(backends))
 	for i, backend := range backends {

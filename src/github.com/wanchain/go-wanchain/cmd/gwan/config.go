@@ -48,6 +48,7 @@ var (
 		Description: `The dumpconfig command shows configuration values.`,
 	}
 
+	//可以在命令行通过config参数指定TOML格式的配置文件。
 	configFileFlag = cli.StringFlag{
 		Name:  "config",
 		Usage: "TOML configuration file",
@@ -75,13 +76,15 @@ type ethstatsConfig struct {
 	URL string `toml:",omitempty"`
 }
 
+//geth config对象。
 type gethConfig struct {
-	Eth      eth.Config
-	Shh      whisper.Config
-	Node     node.Config
-	Ethstats ethstatsConfig
+	Eth      eth.Config	//eth配置。
+	Shh      whisper.Config	//whisper配置。
+	Node     node.Config	//node配置属性。
+	Ethstats ethstatsConfig	//ethstats配置。
 }
 
+//从配置文件加载配置信息到cfg中。
 func loadConfig(file string, cfg *gethConfig) error {
 	f, err := os.Open(file)
 	if err != nil {
@@ -97,6 +100,7 @@ func loadConfig(file string, cfg *gethConfig) error {
 	return err
 }
 
+//node默认配置。
 func defaultNodeConfig() node.Config {
 	cfg := node.DefaultConfig
 	cfg.Name = clientIdentifier
@@ -111,22 +115,22 @@ func defaultNodeConfig() node.Config {
 
 func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 	// Load defaults.
-	cfg := gethConfig{
+	cfg := gethConfig{	//加载默认配置。
 		Eth:  eth.DefaultConfig,
 		Shh:  whisper.DefaultConfig,
 		Node: defaultNodeConfig(),
 	}
 
-	// Load config file.
-	if file := ctx.GlobalString(configFileFlag.Name); file != "" {
-		if err := loadConfig(file, &cfg); err != nil {
+	// Load config file.	//从配置文件加载配置信息。
+	if file := ctx.GlobalString(configFileFlag.Name); file != "" {	//获得配置文件名称。
+		if err := loadConfig(file, &cfg); err != nil {	//从配置文件加载配置信息。
 			utils.Fatalf("%v", err)
 		}
 	}
 
 	// Apply flags.
-	utils.SetNodeConfig(ctx, &cfg.Node)
-	stack, err := node.New(&cfg.Node)
+	utils.SetNodeConfig(ctx, &cfg.Node)	//构造node配置属性。
+	stack, err := node.New(&cfg.Node)	//生成一个p2p node。
 	if err != nil {
 		utils.Fatalf("Failed to create the protocol stack: %v", err)
 	}
@@ -150,6 +154,7 @@ func enableWhisper(ctx *cli.Context) bool {
 	return false
 }
 
+//创建一个full node。
 func makeFullNode(ctx *cli.Context) *node.Node {
 	stack, cfg := makeConfigNode(ctx)
 

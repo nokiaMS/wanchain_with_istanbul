@@ -286,6 +286,7 @@ var (
 		Usage: "Number of CPU threads to use for mining",
 		Value: runtime.NumCPU(),
 	}
+	//每个区块能承载的gas的上限，默认和genesis.json中的gasLimit一致。
 	TargetGasLimitFlag = cli.Uint64Flag{
 		Name:  "targetgaslimit",
 		Usage: "Target gas limit sets the artificial target gas floor for the blocks to mine",
@@ -832,6 +833,7 @@ func SetP2PConfig(ctx *cli.Context, cfg *p2p.Config) {
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
+//组织配置信息，构造node.Config对象。
 func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	SetP2PConfig(ctx, &cfg.P2P)
 	setIPC(ctx, cfg)
@@ -1090,6 +1092,7 @@ func RegisterEthStatsService(stack *node.Node, url string) {
 }
 
 // SetupNetwork configures the system for either the main net or some test network.
+//为mainet或者test net设置参数targetGasLimit.
 func SetupNetwork(ctx *cli.Context) {
 	// TODO(fjl): move target gas limit into config
 	params.TargetGasLimit = new(big.Int).SetUint64(ctx.GlobalUint64(TargetGasLimitFlag.Name))
