@@ -25,55 +25,60 @@ import (
 	"github.com/wanchain/go-wanchain/log"
 )
 
+//cpu代理。
 type CpuAgent struct {
 	mu sync.Mutex
 
 	workCh        chan *Work
-	stop          chan struct{}
+	stop          chan struct{}	//channel,接收stop消息。
 	quitCurrentOp chan struct{}
 	returnCh      chan<- *Result
 
-	chain  consensus.ChainReader
-	engine consensus.Engine
+	chain  consensus.ChainReader	//区块链头。
+	engine consensus.Engine		//共识算法引擎。
 
-	isMining int32 // isMining indicates whether the agent is currently mining
+	isMining int32 // isMining indicates whether the agent is currently mining	//当前agent是否正在挖矿。
 }
 
 //构建cpu挖矿代理.
 func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine) *CpuAgent {
 	miner := &CpuAgent{
-		chain:  chain,
-		engine: engine,
-		stop:   make(chan struct{}, 1),
-		workCh: make(chan *Work, 1),
+		chain:  chain,						//区块链。
+		engine: engine,						//共识算法engine。
+		stop:   make(chan struct{}, 1),	//异步通道，接收stop消息。
+		workCh: make(chan *Work, 1),		//异步通道，接收work类型消息。
 	}
 	return miner
 }
 
+//返回Work指针类型的通道。
 func (self *CpuAgent) Work() chan<- *Work            { return self.workCh }
 func (self *CpuAgent) SetReturnCh(ch chan<- *Result) { self.returnCh = ch }
 
+//停止agent。
 func (self *CpuAgent) Stop() {
 	if !atomic.CompareAndSwapInt32(&self.isMining, 1, 0) {
 		return // agent already stopped
 	}
-	self.stop <- struct{}{}
+	self.stop <- struct{}{}		//像stop channel发送消息。
 done:
-	// Empty work channel
+	// Empty work channel	//清空work channel.
 	for {
 		select {
 		case <-self.workCh:
 		default:
-			break done
+			break done	//break <label>的意思是跳出for循环到<label处，但是跳出后就不再执行for循环了。>
 		}
 	}
 }
 
 //启动挖矿.
 func (self *CpuAgent) Start() {
+	//如果没有启动挖矿，那么启动；如果已经启动了，那么不再再次启动。
 	if !atomic.CompareAndSwapInt32(&self.isMining, 0, 1) {
 		return // agent already started
 	}
+	//启动事件监控。
 	go self.update()
 }
 
