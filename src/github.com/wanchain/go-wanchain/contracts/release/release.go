@@ -59,6 +59,7 @@ type ReleaseService struct {
 
 // NewReleaseService creates a new service to periodically check for new client
 // releases and notify the user of such.
+//release service用语周期性检查客户端版本更新然后提示用户.
 func NewReleaseService(ctx *node.ServiceContext, config Config) (node.Service, error) {
 	// Retrieve the Ethereum service dependency to access the blockchain
 	var apiBackend ethapi.Backend

@@ -129,9 +129,10 @@ func (self *Miner) Stop() {
 	atomic.StoreInt32(&self.shouldStart, 0)
 }
 
+//注册挖矿代理, agent:要注册的挖矿代理对象.
 func (self *Miner) Register(agent Agent) {
 	if self.Mining() {
-		agent.Start()
+		agent.Start()	//开始挖矿.
 	}
 	self.worker.register(agent)
 }
@@ -140,6 +141,7 @@ func (self *Miner) Unregister(agent Agent) {
 	self.worker.unregister(agent)
 }
 
+//是否正在挖矿.
 func (self *Miner) Mining() bool {
 	return atomic.LoadInt32(&self.mining) > 0
 }

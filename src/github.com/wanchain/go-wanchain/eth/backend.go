@@ -103,6 +103,7 @@ func (s *Ethereum) AddLesServer(ls LesServer) {
 
 // New creates a new Ethereum object (including the
 // initialisation of the common Ethereum object)
+// 创建Ethereum对象.
 func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if config.SyncMode == downloader.LightSync {
 		return nil, errors.New("can't run eth.Ethereum in light sync mode, use les.LightEthereum")
@@ -110,6 +111,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if !config.SyncMode.IsValid() {
 		return nil, fmt.Errorf("invalid sync mode %d", config.SyncMode)
 	}
+	//创建链数据库.
 	chainDb, err := CreateDB(ctx, config, "chaindata")
 	if err != nil {
 		return nil, err
@@ -137,6 +139,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		bloomIndexer:   NewBloomIndexer(chainDb, params.BloomBitsBlocks),
 	}
 
+	//如果采用istanbul做共识,那么强制设置节点的etherbase为节点的公钥.
 	// force to set the istanbul etherbase to node key address
 	if chainConfig.Istanbul != nil {
 		eth.etherbase = crypto.PubkeyToAddress(ctx.NodeKey().PublicKey)
@@ -165,14 +168,18 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.bloomIndexer.Start(eth.blockchain.CurrentHeader(), eth.blockchain.SubscribeChainEvent)
 
+	//创建ethereum对象的txPool.
 	if config.TxPool.Journal != "" {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, eth.chainConfig, eth.blockchain)
 
+	//创建ethereum的protocolManager.
 	if eth.protocolManager, err = NewProtocolManager(eth.chainConfig, config.SyncMode, config.NetworkId, eth.eventMux, eth.txPool, eth.engine, eth.blockchain, chainDb); err != nil {
 		return nil, err
 	}
+
+	//创建ethereum对象额miner域.
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
 
@@ -204,6 +211,7 @@ func makeExtraData(extra []byte) []byte {
 }
 
 // CreateDB creates the chain database.
+//创建链数据库.
 func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Database, error) {
 	db, err := ctx.OpenDatabase(name, config.DatabaseCache, config.DatabaseHandles)
 	if err != nil {
@@ -216,12 +224,13 @@ func CreateDB(ctx *node.ServiceContext, config *Config, name string) (ethdb.Data
 }
 
 // CreateConsensusEngine creates the required type of consensus engine instance for an Ethereum service
+//创建共识算法engine.
 func CreateConsensusEngine(ctx *node.ServiceContext, config *Config, chainConfig *params.ChainConfig, db ethdb.Database) consensus.Engine {
 	// If proof-of-authority is requested, set it up
-	if chainConfig.Clique != nil {
+	if chainConfig.Clique != nil {	//如果配置了Clique,那么创建clique共识算法engine.
 		return clique.New(chainConfig.Clique, db)
 	}
-	if chainConfig.Pluto != nil {
+	if chainConfig.Pluto != nil {	//如果pluto配置了,那么创建pluto共识算法engine.
 		var cliqueCfg params.CliqueConfig
 		chainConfig.Clique = &cliqueCfg
 		chainConfig.Clique.Period = chainConfig.Pluto.Period
@@ -229,13 +238,15 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *Config, chainConfig
 		return clique.New(chainConfig.Clique, db)
 	}
 	// If Istanbul is requested, set it up
-	if chainConfig.Istanbul != nil {
+	if chainConfig.Istanbul != nil {	//如果配置了istanbul共识算法,那么就创建istanbul共识算法engine.
 		if chainConfig.Istanbul.Epoch != 0 {
 			config.Istanbul.Epoch = chainConfig.Istanbul.Epoch
 		}
 		config.Istanbul.ProposerPolicy = istanbul.ProposerPolicy(chainConfig.Istanbul.ProposerPolicy)
-		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db)
+		return istanbulBackend.New(&config.Istanbul, ctx.NodeKey(), db) //创建istanbul共识算法engine.
 	}
+
+	//否则使用ethash共识算法,及PoW共识算法.
 	// Otherwise assume proof-of-work
 	switch {
 	case config.PowFake:

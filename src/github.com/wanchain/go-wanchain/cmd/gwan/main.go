@@ -216,18 +216,20 @@ func main() {
 // blocking mode, waiting for it to be shut down.
 //创建并启动node。
 func geth(ctx *cli.Context) error {
-	node := makeFullNode(ctx) //创建一个full node。
+	node := makeFullNode(ctx) //创建一个full node。(node的概念对应于p2p网络层面,指p2p网络中的一个节点.)
 	startNode(ctx, node)	//启动node。
-	node.Wait()		//等待，知道geth程序退出。
+	node.Wait()		//等待，直到geth程序退出。
 	return nil
 }
 
 // startNode boots up the system node and all registered protocols, after which
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
+//启动node,做如下操作:
+
 func startNode(ctx *cli.Context, stack *node.Node) {
 	// Start up the node itself
-	utils.StartNode(stack)
+	utils.StartNode(stack)	//启动节点.
 
 	// Unlock any account specifically requested
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
@@ -241,8 +243,9 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 	}
 	// Register wallet event handlers to open and auto-derive wallets
 	events := make(chan accounts.WalletEvent, 16)
-	stack.AccountManager().Subscribe(events)
+	stack.AccountManager().Subscribe(events)	//订阅了WalletEvent事件.
 
+	//创建协程,响应钱包事件.
 	go func() {
 		// Create an chain state reader for self-derivation
 		rpcClient, err := stack.Attach()
@@ -281,10 +284,10 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		}
 	}()
 	// Start auxiliary services if enabled
-	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) {
+	if ctx.GlobalBool(utils.MiningEnabledFlag.Name) {  //如果配置了--mine,那么此处会导致节点开始挖矿.
 		// Mining only makes sense if a full Ethereum node is running
 		var ethereum *eth.Ethereum
-		if err := stack.Service(&ethereum); err != nil {
+		if err := stack.Service(&ethereum); err != nil {  //利用go的reflect机制找到Ethereum服务对象.
 			utils.Fatalf("ethereum service not running: %v", err)
 		}
 		// Use a reduced number of threads if requested

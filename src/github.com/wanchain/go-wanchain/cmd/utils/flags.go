@@ -276,11 +276,15 @@ var (
 		Usage: "Number of trie node generations to keep in memory",
 		Value: int(state.MaxTrieCacheGen),
 	}
+
+	//设置是否在节点启动之后马上开始挖矿.
 	// Miner settings
 	MiningEnabledFlag = cli.BoolFlag{
 		Name:  "mine",
 		Usage: "Enable mining",
 	}
+
+	//挖矿线程个数.
 	MinerThreadsFlag = cli.IntFlag{
 		Name:  "minerthreads",
 		Usage: "Number of CPU threads to use for mining",
@@ -297,6 +301,8 @@ var (
 		Usage: "Public address for block mining rewards (default = first account created)",
 		Value: "0",
 	}
+
+	//能够被节点挖出的交易的最小gas price,小于这个gas price的交易不会被节点挖出.
 	GasPriceFlag = BigFlag{
 		Name:  "gasprice",
 		Usage: "Minimal gas price to accept for mining a transactions",
@@ -1050,9 +1056,10 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			return les.New(ctx, cfg)
 		})
-	} else {
+	} else {  //默认为FastSync.
+		//注册Ethereum服务构造函数到节点中.
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-			fullNode, err := eth.New(ctx, cfg)
+			fullNode, err := eth.New(ctx, cfg)	//在构造函数中创建了一个新的Ethereum对象.
 			if fullNode != nil && cfg.LightServ > 0 {
 				ls, _ := les.NewLesServer(fullNode, cfg)
 				fullNode.AddLesServer(ls)
@@ -1076,6 +1083,7 @@ func RegisterShhService(stack *node.Node, cfg *whisper.Config) {
 
 // RegisterEthStatsService configures the Ethereum Stats daemon and adds it to
 // th egiven node.
+//以太坊状态服务器.
 func RegisterEthStatsService(stack *node.Node, url string) {
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		// Retrieve both eth and les services

@@ -58,17 +58,20 @@ func Fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
+//启动节点.
 func StartNode(stack *node.Node) {
+	//启动节点.
 	if err := stack.Start(); err != nil {
 		Fatalf("Error starting protocol stack: %v", err)
 	}
+	//匿名函数监听停止事件.
 	go func() {
-		sigc := make(chan os.Signal, 1)
-		signal.Notify(sigc, os.Interrupt)
+		sigc := make(chan os.Signal, 1)	//系统信号channel,异步, buffer 1.
+		signal.Notify(sigc, os.Interrupt)	//设置要捕获的信号类型os.interrupt,其余没有设置的信号不捕获.
 		defer signal.Stop(sigc)
-		<-sigc
+		<-sigc								//channel阻塞在此.
 		log.Info("Got interrupt, shutting down...")
-		go stack.Stop()
+		go stack.Stop()		//停止节点.
 		for i := 10; i > 0; i-- {
 			<-sigc
 			if i > 1 {
@@ -77,7 +80,7 @@ func StartNode(stack *node.Node) {
 		}
 		debug.Exit() // ensure trace and CPU profile data is flushed.
 		debug.LoudPanic("boom")
-	}()
+	}()		//匿名函数.
 }
 
 func ImportChain(chain *core.BlockChain, fn string) error {

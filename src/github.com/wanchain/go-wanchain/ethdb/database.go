@@ -35,6 +35,7 @@ import (
 
 var OpenFileLimit = 64
 
+//LevelDB结构体
 type LDBDatabase struct {
 	fn string      // filename for reporting
 	db *leveldb.DB // LevelDB instance

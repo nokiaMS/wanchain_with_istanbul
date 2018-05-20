@@ -133,7 +133,7 @@ type worker struct {
 
 //创建一个新的worker对象.
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
-	worker := &worker{
+	worker := &worker{  //创建worker对象.
 		config:         config,
 		engine:         engine,
 		eth:            eth,
@@ -151,15 +151,17 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
 		miniSealTime:   12,
 	}
+
+	//订阅TxPreEvent, ChainHeadEvent和ChainSideEvent.
 	// Subscribe TxPreEvent for tx pool
 	worker.txSub = eth.TxPool().SubscribeTxPreEvent(worker.txCh)  //订阅了txpool的TxPreEvent.
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
-	go worker.update()
+	go worker.update()	//创建协程.等待并处理以上三个事件,
 
-	go worker.wait()
-	worker.commitNewWork()
+	go worker.wait()    //创建协程,等待并处理接收到的区块.
+	worker.commitNewWork()  //组装区块准备提交.
 
 	return worker
 }
@@ -299,6 +301,7 @@ func (self *worker) update() {
 	}
 }
 
+//等待并处理worker接收到的块.
 func (self *worker) wait() {
 	for {
 		mustCommitNewWork := true

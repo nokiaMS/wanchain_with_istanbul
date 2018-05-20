@@ -178,7 +178,7 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 		utils.RegisterEthStatsService(stack, cfg.Ethstats.URL)
 	}
 
-	// Add the release oracle service so it boots along with node.
+	// Add the release oracle service so it boots along with node. //注册版本更新提示服务.
 	if err := stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 		config := release.Config{
 			Oracle: relOracle,

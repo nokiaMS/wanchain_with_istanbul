@@ -45,11 +45,12 @@ type Node struct {
 	ephemeralKeystore string         // if non-empty, the key directory that will be removed by Stop
 	instanceDirLock   flock.Releaser // prevents concurrent use of instance directory
 
-	serverConfig p2p.Config
-	server       *p2p.Server // Currently running P2P networking layer
+	//p2p配置.
+	serverConfig p2p.Config  //p2p配置信息.
+	server       *p2p.Server // Currently running P2P networking layer		//节点的p2p server.
 
-	serviceFuncs []ServiceConstructor     // Service constructors (in dependency order)
-	services     map[reflect.Type]Service // Currently running services
+	serviceFuncs []ServiceConstructor     // Service constructors (in dependency order)	//节点中注册了的服务.
+	services     map[reflect.Type]Service // Currently running services	//当前节点中运行的各种服务实例.
 
 	rpcAPIs       []rpc.API   // List of APIs currently provided by the node
 	inprocHandler *rpc.Server // In-process RPC request handler to process the API requests
@@ -67,7 +68,7 @@ type Node struct {
 	wsListener net.Listener // Websocket RPC listener socket to server API requests
 	wsHandler  *rpc.Server  // Websocket RPC request handler to process the API requests
 
-	stop chan struct{} // Channel to wait for termination notifications
+	stop chan struct{} // Channel to wait for termination notifications	//termination notification通道.
 	lock sync.RWMutex
 }
 
@@ -118,6 +119,7 @@ func New(conf *Config) (*Node, error) {
 
 // Register injects a new service into the node's stack. The service created by
 // the passed constructor must be unique in its type with regard to sibling ones.
+//向节点注册服务.
 func (n *Node) Register(constructor ServiceConstructor) error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -130,18 +132,22 @@ func (n *Node) Register(constructor ServiceConstructor) error {
 }
 
 // Start create a live P2P node and starts running it.
+//节点启动.
 func (n *Node) Start() error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
 
 	// Short circuit if the node's already running
+	//节点已经运行,直接退出.
 	if n.server != nil {
 		return ErrNodeRunning
 	}
+	//数据文件夹不能打开,直接退出.
 	if err := n.openDataDir(); err != nil {
 		return err
 	}
 
+	//创建p2p server.
 	// Initialize the p2p server. This creates the node key and
 	// discovery databases.
 	n.serverConfig = n.config.P2P
@@ -172,7 +178,9 @@ func (n *Node) Start() error {
 		for kind, s := range services { // copy needed for threaded access
 			ctx.services[kind] = s
 		}
+
 		// Construct and save the service
+		//执行构造函数构造service,把构造好的service对象存储到services字段中.
 		service, err := constructor(ctx)
 		if err != nil {
 			return err
@@ -187,9 +195,12 @@ func (n *Node) Start() error {
 	for _, service := range services {
 		running.Protocols = append(running.Protocols, service.Protocols()...)
 	}
+	//启动p2p server.
 	if err := running.Start(); err != nil {
 		return convertFileLockError(err)
 	}
+
+	//启动node的各种service.
 	// Start each of the services
 	started := []reflect.Type{}
 	for kind, service := range services {
@@ -205,6 +216,8 @@ func (n *Node) Start() error {
 		// Mark the service started for potential cleanup
 		started = append(started, kind)
 	}
+
+	//启动节点的rpc服务.
 	// Lastly start the configured RPC interfaces
 	if err := n.startRPC(services); err != nil {
 		for _, service := range services {
@@ -214,9 +227,9 @@ func (n *Node) Start() error {
 		return err
 	}
 	// Finish initializing the startup
-	n.services = services
-	n.server = running
-	n.stop = make(chan struct{})
+	n.services = services			//节点启动的服务实例.
+	n.server = running				//节点的p2p server.
+	n.stop = make(chan struct{})  //terminate notification接收通道.
 
 	return nil
 }
@@ -468,6 +481,7 @@ func (n *Node) stopWS() {
 
 // Stop terminates a running node along with all it's services. In the node was
 // not started, an error is returned.
+//停止节点.
 func (n *Node) Stop() error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -503,7 +517,7 @@ func (n *Node) Stop() error {
 	}
 
 	// unblock n.Wait
-	close(n.stop)
+	close(n.stop)	//当channel被关闭的时候,阻塞在此channel的读操作会返回nil,并且不再继续阻塞.
 
 	// Remove the keystore if it was created ephemerally.
 	var keystoreErr error
@@ -531,7 +545,7 @@ func (n *Node) Wait() {
 	stop := n.stop
 	n.lock.RUnlock()
 
-	<-stop
+	<-stop	//此处阻塞,一直等待stop信号.
 }
 
 // Restart terminates a running node and boots up a new one in its place. If the

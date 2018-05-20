@@ -39,6 +39,7 @@ type CpuAgent struct {
 	isMining int32 // isMining indicates whether the agent is currently mining
 }
 
+//构建cpu挖矿代理.
 func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine) *CpuAgent {
 	miner := &CpuAgent{
 		chain:  chain,
@@ -68,6 +69,7 @@ done:
 	}
 }
 
+//启动挖矿.
 func (self *CpuAgent) Start() {
 	if !atomic.CompareAndSwapInt32(&self.isMining, 0, 1) {
 		return // agent already started
