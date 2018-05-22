@@ -27,14 +27,14 @@ import (
 
 //cpu代理。
 type CpuAgent struct {
-	mu sync.Mutex
+	mu sync.Mutex	//互斥锁.
 
 	workCh        chan *Work
-	stop          chan struct{}	//channel,接收stop消息。
-	quitCurrentOp chan struct{}
+	stop          chan struct{}	//channel,接收stop消息.
+	quitCurrentOp chan struct{}	//通道:退出当前操作.
 	returnCh      chan<- *Result
 
-	chain  consensus.ChainReader	//区块链头。
+	chain  consensus.ChainReader	//访问本地区块链的不完备方法集合,用于header验证及uncle验证.
 	engine consensus.Engine		//共识算法引擎。
 
 	isMining int32 // isMining indicates whether the agent is currently mining	//当前agent是否正在挖矿。
@@ -67,7 +67,7 @@ done:
 		select {
 		case <-self.workCh:
 		default:
-			break done	//break <label>的意思是跳出for循环到<label处，但是跳出后就不再执行for循环了。>
+			break done	//break <label>的意思是跳出for循环到<label处，但是跳出后就不再再次执行for循环了。>
 		}
 	}
 }
@@ -82,26 +82,27 @@ func (self *CpuAgent) Start() {
 	go self.update()
 }
 
+//事件监控.
 func (self *CpuAgent) update() {
 out:
 	for {
 		select {
 		case work := <-self.workCh:
 			self.mu.Lock()
-			if self.quitCurrentOp != nil {
-				close(self.quitCurrentOp)
+			if self.quitCurrentOp != nil {	//需要退出当前通道,则退出.
+				close(self.quitCurrentOp)	//关闭quitCurrentOp通道.
 			}
 			self.quitCurrentOp = make(chan struct{})
 			go self.mine(work, self.quitCurrentOp)
 			self.mu.Unlock()
-		case <-self.stop:
+		case <-self.stop:	//收到停止消息.
 			self.mu.Lock()
-			if self.quitCurrentOp != nil {
-				close(self.quitCurrentOp)
+			if self.quitCurrentOp != nil {	//需要退出当前操作,则退出.
+				close(self.quitCurrentOp)	//关闭quitCurrentOp通道.
 				self.quitCurrentOp = nil
 			}
 			self.mu.Unlock()
-			break out
+			break out	//跳出for循环,协程退出.
 		}
 	}
 }
