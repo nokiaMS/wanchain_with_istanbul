@@ -36,6 +36,7 @@ import (
 	"github.com/wanchain/go-wanchain/log"
 	"github.com/wanchain/go-wanchain/params"
 	set "gopkg.in/fatih/set.v0"
+	"strconv"
 )
 
 const (
@@ -481,11 +482,12 @@ func (self *worker) commitNewWork() {
 		return
 	}
 	// Create the current work task and check any fork transitions needed
-	work := self.current
+	work := self.current  //此时work.tcount还是0,也就是work中的交易数为0.
 	//if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 	//	misc.ApplyDAOHardFork(work.state)
 	//}
 
+	//获得可以打包的交易列表.
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
@@ -573,8 +575,10 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		env.state.Prepare(tx.Hash(), common.Hash{}, env.tcount)
 
 		err, logs := env.commitTransaction(tx, bc, coinbase, gp) //执行交易.
+
 		switch err {
 		case core.ErrGasLimitReached:
+			//gasLimit影响一个块中能够容纳的交易数量,因此也就能够影响交易完成速率.
 			// Pop the current out-of-gas transaction without shifting in the next from the account
 			log.Trace("Gas limit exceeded for current block", "sender", from)
 			txs.Pop()
