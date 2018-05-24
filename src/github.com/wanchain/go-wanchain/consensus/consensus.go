@@ -76,6 +76,7 @@ type Engine interface {
 
 	// Prepare initializes the consensus fields of a block header according to the
 	// rules of a particular engine. The changes are executed inline.
+	//共识算法调用之前的准备工作. 由各个共识算法进行重载.
 	Prepare(chain ChainReader, header *types.Header, mining bool) error
 
 	// Finalize runs any post-transaction state modifications (e.g. block rewards)

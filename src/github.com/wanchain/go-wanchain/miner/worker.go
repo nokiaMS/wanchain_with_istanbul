@@ -36,28 +36,28 @@ import (
 	"github.com/wanchain/go-wanchain/log"
 	"github.com/wanchain/go-wanchain/params"
 	set "gopkg.in/fatih/set.v0"
-	"strconv"
 )
 
 const (
-	resultQueueSize  = 10
+	resultQueueSize  = 10		//cpu agent处理的结果会返回到结果通道,此为结果通道的buffer大小.
 	miningLogAtDepth = 5
 
 	// txChanSize is the size of channel listening to TxPreEvent.
 	// The number is referenced from the size of tx pool.
 	txChanSize = 4096		//txChan通道buffer大小.
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize = 10
+	chainHeadChanSize = 10	//chainHead事件通道的buffer大小.
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
-	chainSideChanSize = 10
+	chainSideChanSize = 10	//chainSide事件通道的buffer大小.
 )
 
 // Agent can register themself with the worker
+//一个worker中可以注册多个agent.
 type Agent interface {
-	Work() chan<- *Work
-	SetReturnCh(chan<- *Result)
-	Stop()
-	Start()
+	Work() chan<- *Work		//返回一个只写通道,用于worker把组装好的Work对象传递给agent.
+	SetReturnCh(chan<- *Result)	//设置结果返回通道.
+	Stop()		//停止agent.
+	Start()		//启动agent.
 	GetHashRate() int64
 }
 
@@ -75,102 +75,104 @@ type Work struct {
 
 	Block *types.Block // the new block
 
-	header   *types.Header
-	txs      []*types.Transaction
+	header   *types.Header			//区块头指针.
+	txs      []*types.Transaction	//交易列表.
 	receipts []*types.Receipt
 
-	createdAt time.Time
+	createdAt time.Time		//Work对象的时间戳.
 }
 
+//agent处理的返回结果.
 type Result struct {
-	Work  *Work
-	Block *types.Block
+	Work  *Work		//worker对象传递过来的Work对象,此结构中的Block就是基于这个Work对象挖掘出来的.
+	Block *types.Block	//返回的区块.
 }
 
 // worker is the main object which takes care of applying messages to the new state
 type worker struct {
 	config *params.ChainConfig
-	engine consensus.Engine
+	engine consensus.Engine		//共识算法引擎.
 
-	mu sync.Mutex
+	mu sync.Mutex	//worker对象操作的互斥锁.
 
 	// update loop
 	mux          *event.TypeMux
-	txCh         chan core.TxPreEvent
-	txSub        event.Subscription
-	chainHeadCh  chan core.ChainHeadEvent
-	chainHeadSub event.Subscription
-	chainSideCh  chan core.ChainSideEvent
-	chainSideSub event.Subscription
+	txCh         chan core.TxPreEvent			//TxPreEvent事件
+	txSub        event.Subscription				//TxPreEvent订阅
+	chainHeadCh  chan core.ChainHeadEvent		//ChainHeadEvent事件
+	chainHeadSub event.Subscription				//ChainHeadEvent订阅
+	chainSideCh  chan core.ChainSideEvent		//ChainSideEvent事件
+	chainSideSub event.Subscription				//ChainSideEvent订阅
 	wg           sync.WaitGroup
 
-	agents map[Agent]struct{}
-	recv   chan *Result
+	agents map[Agent]struct{}	//此语法实际上就是实现了一个Agent的set.
+	recv   chan *Result		//worker中的agent挖出一个块之后,结果会返回到recv通道,这个recv通道就是用来接收从agent返回的挖矿结果.
 
 	eth     Backend
 	chain   *core.BlockChain
 	proc    core.Validator
 	chainDb ethdb.Database
 
-	coinbase common.Address
+	coinbase common.Address		//挖矿的账号.
 	extra    []byte
 
-	currentMu sync.Mutex
-	current   *Work
+	currentMu sync.Mutex	//当前work对象锁.
+	current   *Work			//当前的work对象.
 
-	uncleMu        sync.Mutex
+	uncleMu        sync.Mutex	//uncle块的锁,操作possibleUncles时会对其加锁.
 	possibleUncles map[common.Hash]*types.Block
 
 	unconfirmed *unconfirmedBlocks // set of locally mined blocks pending canonicalness confirmations
 
 	// atomic status counters
-	mining int32
-	atWork int32
+	mining int32	//是否正在挖矿标记.
+	atWork int32	//正在工作的agent计数.
 
 	// Seal work used minimum time(second).
 	// If used less time actual, will wait time gap before deal with new mined block.
 	miniSealTime int64
 }
 
-//创建一个新的worker对象.
+//创建一个新的worker对象. 不对miner包外公开,在Miner对象创建的时候被调用.
 func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase common.Address, eth Backend, mux *event.TypeMux) *worker {
 	worker := &worker{  //创建worker对象.
 		config:         config,
-		engine:         engine,
+		engine:         engine,		//共识算法引擎.
 		eth:            eth,
 		mux:            mux,
-		txCh:           make(chan core.TxPreEvent, txChanSize),	//txCh是一个接受TxPreEvent类型的异步通道.
-		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),
-		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize),
+		txCh:           make(chan core.TxPreEvent, txChanSize),				//txCh是一个接受TxPreEvent类型的异步通道.
+		chainHeadCh:    make(chan core.ChainHeadEvent, chainHeadChanSize),	//ChainHeadEvent事件通道.
+		chainSideCh:    make(chan core.ChainSideEvent, chainSideChanSize), 	//ChainSideEvent事件通道.
 		chainDb:        eth.ChainDb(),
-		recv:           make(chan *Result, resultQueueSize),
+		recv:           make(chan *Result, resultQueueSize),		//接收agent的返回结果.
 		chain:          eth.BlockChain(),
 		proc:           eth.BlockChain().Validator(),
 		possibleUncles: make(map[common.Hash]*types.Block),
-		coinbase:       coinbase,
-		agents:         make(map[Agent]struct{}),
+		coinbase:       coinbase,	//挖矿用的账号.
+		agents:         make(map[Agent]struct{}),		//worker关联的agent列表.
 		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
 		miniSealTime:   12,
 	}
 
-	//订阅TxPreEvent, ChainHeadEvent和ChainSideEvent.
-	// Subscribe TxPreEvent for tx pool
+	// Subscribe TxPreEvent for tx pool  //订阅txPool的TxPreEvent事件.
 	worker.txSub = eth.TxPool().SubscribeTxPreEvent(worker.txCh)  //订阅了txpool的TxPreEvent.
-	// Subscribe events for blockchain
-	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
-	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
+
+	// Subscribe events for blockchain  //订阅blockchain的chainHeadCh和chainSideCh事件.
+	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)		//订阅chainHeadCh事件.
+	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)		//订阅chainSideCh事件.
 	go worker.update()	//创建协程.等待并处理以上三个事件,
 
-	go worker.wait()    //创建协程,等待并处理接收到的区块.
+	go worker.wait()    //创建协程,等待并处理cpuAgent挖掘出来并返回的区块.
 	worker.commitNewWork()  //组装区块准备提交.
 
 	return worker
 }
 
+//设置worker对象的coinbase.
 func (self *worker) setEtherbase(addr common.Address) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	self.coinbase = addr
+	self.mu.Lock()	//给worker对象加锁.
+	defer self.mu.Unlock()	//函数退出之后自动解锁.
+	self.coinbase = addr	//设置worker的coinbase.
 }
 
 func (self *worker) setExtra(extra []byte) {
@@ -211,24 +213,21 @@ func (self *worker) pendingBlock() *types.Block {
 
 //开始挖矿.
 func (self *worker) start() {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-
-	atomic.StoreInt32(&self.mining, 1)
-
-
-	atomic.StoreInt32(&self.mining, 1)
-	if istanbul, ok := self.engine.(consensus.Istanbul); ok {
+	self.mu.Lock()	//对worker对象加锁.
+	defer self.mu.Unlock()		//函数退出解锁.
+	atomic.StoreInt32(&self.mining, 1)		//设置正在挖矿的标志位.
+	if istanbul, ok := self.engine.(consensus.Istanbul); ok {	//如果使用ibft,那么启动ibft.
 		//如果是istanbul engine,那么进到此处.
-		istanbul.Start(self.chain, self.chain.CurrentBlock, self.chain.HasBadBlock)
+		istanbul.Start(self.chain, self.chain.CurrentBlock, self.chain.HasBadBlock)	//ibft启动.
 	}
 
-	// spin up agents
+	// spin up agents	//启动worker中的所有agents.
 	for agent := range self.agents {
-		agent.Start()
+		agent.Start()	//agent启动.
 	}
 }
 
+//停止挖矿.
 func (self *worker) stop() {
 	self.wg.Wait()
 
@@ -243,43 +242,46 @@ func (self *worker) stop() {
 	atomic.StoreInt32(&self.atWork, 0)
 }
 
+//注册agent到worker对象中.
 func (self *worker) register(agent Agent) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	self.agents[agent] = struct{}{}
-	agent.SetReturnCh(self.recv)
+	self.mu.Lock()	//worker对象加锁.
+	defer self.mu.Unlock()		//函数退出解锁.
+	self.agents[agent] = struct{}{}	//加入到worker的agent列表.
+	agent.SetReturnCh(self.recv)	//设置agent的结果返回通道, worker在wait()函数中会读取这个通道的消息并处理agent返回的结果.
 }
 
+//从worker中把agent解除注册.
 func (self *worker) unregister(agent Agent) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	delete(self.agents, agent)
-	agent.Stop()
+	self.mu.Lock()	//worker对象加锁.
+	defer self.mu.Unlock()	//函数退出解锁.
+	delete(self.agents, agent)	//从worker的agent列表中把指定agent删除.
+	agent.Stop()	//停止agent.
 }
 
+//响应并处理worker订阅的事件.
 func (self *worker) update() {
-	defer self.txSub.Unsubscribe()
-	defer self.chainHeadSub.Unsubscribe()
-	defer self.chainSideSub.Unsubscribe()
+	defer self.txSub.Unsubscribe()			//update()退出时解除注册TxPreEvent事件.
+	defer self.chainHeadSub.Unsubscribe()	//update()退出时解除注册ChainHeadEvent事件.
+	defer self.chainSideSub.Unsubscribe()	//update()退出时解除注册ChainSideEvent事件.
 
-	for {
+	for {	//无限循环,处理并响应事件.
 		// A real event arrived, process interesting content
 		select {
 		// Handle ChainHeadEvent
-		case <-self.chainHeadCh:
+		case <-self.chainHeadCh:	//处理ChainHeadEvent.
 			if h, ok := self.engine.(consensus.Handler); ok {
 				h.NewChainHead()
 			}
 			self.commitNewWork()
 
 		// Handle ChainSideEvent
-		case ev := <-self.chainSideCh:
+		case ev := <-self.chainSideCh:		//处理ChainSideEvent事件.
 			self.uncleMu.Lock()
 			self.possibleUncles[ev.Block.Hash()] = ev.Block
 			self.uncleMu.Unlock()
 
 		// Handle TxPreEvent
-		case ev := <-self.txCh:
+		case ev := <-self.txCh:	//处理TxPreEvent事件.
 			// Apply transaction to the pending state if we're not mining
 			if atomic.LoadInt32(&self.mining) == 0 {  //判断是否正在挖矿,如果没有正在挖矿,那么执行交易.
 				self.currentMu.Lock()
@@ -291,7 +293,7 @@ func (self *worker) update() {
 				self.currentMu.Unlock()
 			}
 
-		// System stopped
+		// System stopped	系统停止则udpate()函数返回.
 		case <-self.txSub.Err():
 			return
 		case <-self.chainHeadSub.Err():
@@ -302,18 +304,18 @@ func (self *worker) update() {
 	}
 }
 
-//等待并处理worker接收到的块.
+//worker对象等待并处理从agent返回的区块.
 func (self *worker) wait() {
 	for {
 		mustCommitNewWork := true
-		for result := range self.recv {
-			atomic.AddInt32(&self.atWork, -1)
+		for result := range self.recv {	//挖掘出了新的区块之后,agent会把已经经过公示算法确认的区块放入到recv通道,然后worker对象从recv通道中读取已经确认的区块进行处理.
+			atomic.AddInt32(&self.atWork, -1)	//从recv中读出一个块,说明一个agent实例已经完成了任务,因此atWork减1.
 
-			if result == nil {
+			if result == nil {	//读出结果为空,则继续等待.
 				continue
 			}
-			block := result.Block
-			work := result.Work
+			block := result.Block	//获得已经被共识算法确认了的块.
+			work := result.Work		//获得此块对应的Work对象.
 
 			// waiting minimum sealing time
 			//beginTime := block.Header().Time.Int64()
@@ -340,6 +342,8 @@ func (self *worker) wait() {
 			for _, log := range work.state.Logs() {
 				log.BlockHash = block.Hash()
 			}
+
+			//块上链.
 			stat, err := self.chain.WriteBlockAndState(block, work.receipts, work.state)
 			if err != nil {
 				log.Error("Failed writing block to chain", "err", err)
@@ -373,24 +377,28 @@ func (self *worker) wait() {
 }
 
 // push sends a new work task to currently live miner agents.
+//把Work对象交给agent处理.
 func (self *worker) push(work *Work) {
+	//没有挖矿则不处理.
 	if atomic.LoadInt32(&self.mining) != 1 {
 		return
 	}
 	for agent := range self.agents {
-		atomic.AddInt32(&self.atWork, 1)
-		if ch := agent.Work(); ch != nil {
-			ch <- work
+		atomic.AddInt32(&self.atWork, 1) //正在工作的agent计数加1,当前只有一个cpu agent,没有其他agent.
+		if ch := agent.Work(); ch != nil {		//获得agent的Work对象写入通道,然后把组装好的Work对象传递给agent.
+			ch <- work	//把组装好的Work对象写入agent通道中.
 		}
 	}
 }
 
 // makeCurrent creates a new environment for the current cycle.
+// 生成一个新的Work对象.
 func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 	state, err := self.chain.StateAt(parent.Root())
 	if err != nil {
 		return err
 	}
+	//创建一个新的Work对象.
 	work := &Work{
 		config:    self.config,
 		signer:    types.NewEIP155Signer(self.config.ChainId),
@@ -412,19 +420,19 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	}
 
 	// Keep track of transactions which return errors so they can be removed
-	work.tcount = 0
-	self.current = work
+	work.tcount = 0		//Work对象构造出来之后里面没有交易.
+	self.current = work	//设置worker对象的当前Work对象为新生成的Work对象.
 	return nil
 }
 
-//组装待挖掘区块.
+//提交新的Work给agent.
 func (self *worker) commitNewWork() {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	self.uncleMu.Lock()
-	defer self.uncleMu.Unlock()
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
+	self.mu.Lock()	//worker对象锁.
+	defer self.mu.Unlock()	//函数退出的时候解锁.
+	self.uncleMu.Lock()		//uncle块锁加锁
+	defer self.uncleMu.Unlock()	//函数退出时解锁.
+	self.currentMu.Lock()	//当前work加锁
+	defer self.currentMu.Unlock()	//函数退出后解锁.
 
 	tstart := time.Now()	//获得当前系统时间.
 	parent := self.chain.CurrentBlock()		//获得当前的链头区块.
@@ -437,7 +445,7 @@ func (self *worker) commitNewWork() {
 
 	//链头比当前时间太超前的话,则此节点需要sleep一段时间之后再出块.
 	// this will ensure we're not going off too far in the future
-	if now := time.Now().Unix(); tstamp > now+1 {
+	if now := time.Now().Unix(); tstamp > now+1 {	//当前时间落后于区块链头的时间戳了,则休眠等待时间到达区块链头的时间.
 		wait := time.Duration(tstamp-now) * time.Second
 		log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
 		time.Sleep(wait)
@@ -447,11 +455,13 @@ func (self *worker) commitNewWork() {
 	header := &types.Header{	//生成一个新的区块头.
 		ParentHash: parent.Hash(),	//parent区块的hash.
 		Number:     num.Add(num, common.Big1),	// 返回parent的Number +1.
-		GasLimit:   core.CalcGasLimit(parent),
+		GasLimit:   core.CalcGasLimit(parent),	// 计算区块的gasLimit.
 		GasUsed:    new(big.Int),
-		Extra:      self.extra,
+		Extra:      self.extra,		//把worker的extra数据拷贝到区块头中.
 		Time:       big.NewInt(tstamp),		//出块时间.
 	}
+
+	//设置去块头的coinbase为当前挖矿的账号.
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase
@@ -475,6 +485,8 @@ func (self *worker) commitNewWork() {
 	//		}
 	//	}
 	//}
+
+	//生成当前Work对象.
 	// Could potentially happen if starting to mine in an odd state.
 	err := self.makeCurrent(parent, header)
 	if err != nil {
@@ -488,13 +500,13 @@ func (self *worker) commitNewWork() {
 	//}
 
 	//获得可以打包的交易列表.
-	pending, err := self.eth.TxPool().Pending()
+	pending, err := self.eth.TxPool().Pending()	//获得txPool中所有pending的交易.
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return
 	}
-	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
-	work.commitTransactions(self.mux, txs, self.chain, self.coinbase)
+	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)	//返回排序后的交易列表.
+	work.commitTransactions(self.mux, txs, self.chain, self.coinbase)	//执行这些交易,并把处理好的交易信息写入到Work对象中.
 
 	// compute uncles for the new block.
 	//var (
@@ -520,6 +532,7 @@ func (self *worker) commitNewWork() {
 	//}
 	uncles := []*types.Header{}
 	// Create the new block to seal with the consensus engine
+	//返回一个最终组装好了的块交给共识算法来确认.
 	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.txs, uncles, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return
@@ -529,7 +542,7 @@ func (self *worker) commitNewWork() {
 		log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
 	}
-	self.push(work)
+	self.push(work)	//把组装好的Work对象交给agent来处理.
 }
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {

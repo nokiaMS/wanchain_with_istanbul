@@ -38,6 +38,7 @@ type TypeMuxEvent struct {
 // The zero value is ready to use.
 //
 // Deprecated: use Feed
+//TypeMux负责给订阅者分发订阅的事件.
 type TypeMux struct {
 	mutex   sync.RWMutex
 	subm    map[reflect.Type][]*TypeMuxSubscription
@@ -50,6 +51,7 @@ var ErrMuxClosed = errors.New("event: mux closed")
 // Subscribe creates a subscription for events of the given types. The
 // subscription's channel is closed when it is unsubscribed
 // or the mux is closed.
+//订阅指定类型的事件,在解除订阅的时候订阅通道被关闭.
 func (mux *TypeMux) Subscribe(types ...interface{}) *TypeMuxSubscription {
 	sub := newsub(mux)
 	mux.mutex.Lock()
@@ -156,8 +158,8 @@ type TypeMuxSubscription struct {
 	// postC can be set to nil without affecting the return value of
 	// Chan.
 	postMu sync.RWMutex
-	readC  <-chan *TypeMuxEvent
-	postC  chan<- *TypeMuxEvent
+	readC  <-chan *TypeMuxEvent	//只可以用来从通道中读取.
+	postC  chan<- *TypeMuxEvent	//只可以用来向通道写入.
 }
 
 func newsub(mux *TypeMux) *TypeMuxSubscription {
@@ -171,6 +173,7 @@ func newsub(mux *TypeMux) *TypeMuxSubscription {
 	}
 }
 
+//返回*TypeMuxEvent的只读通道.
 func (s *TypeMuxSubscription) Chan() <-chan *TypeMuxEvent {
 	return s.readC
 }

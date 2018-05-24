@@ -70,7 +70,7 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 //区块头结构体.
 type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`		//当前区块的父区块.
-	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
+	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`		//当前区块的uncle区块.
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`		//挖出此区块的账号.
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
@@ -78,9 +78,9 @@ type Header struct {
 	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
 	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
 	Number      *big.Int       `json:"number"           gencodec:"required"`		//当前区块的Number是其parent区块的值+1
-	GasLimit    *big.Int       `json:"gasLimit"         gencodec:"required"`
+	GasLimit    *big.Int       `json:"gasLimit"         gencodec:"required"`		//当前区块的gasLimit(需要根据parent block计算得出)
 	GasUsed     *big.Int       `json:"gasUsed"          gencodec:"required"`
-	Time        *big.Int       `json:"timestamp"        gencodec:"required"`		//区块被挖出的时间.
+	Time        *big.Int       `json:"timestamp"        gencodec:"required"`		//区块产生的时间戳.
 	Extra       []byte         `json:"extraData"        gencodec:"required"`		//区块的extraData数据.
 	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
 	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`		//区块的nonce值.

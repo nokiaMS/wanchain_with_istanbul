@@ -16,6 +16,7 @@
 
 package downloader
 
-type DoneEvent struct{}
-type StartEvent struct{}
-type FailedEvent struct{ Err error }
+//空结构体通常作为消息在通道中传递.
+type DoneEvent struct{}	//downloader DoneEvent消息
+type StartEvent struct{}	//downloader StartEvent消息
+type FailedEvent struct{ Err error }	//downloader FailedEvent消息

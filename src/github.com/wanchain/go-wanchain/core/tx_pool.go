@@ -197,7 +197,7 @@ type TxPool struct {
 	locals  *accountSet // Set of local transaction to exepmt from evicion rules
 	journal *txJournal  // Journal of local transaction to back up to disk		//备份到磁盘的本地交易日志.
 
-	pending map[common.Address]*txList         // All currently processable transactions
+	pending map[common.Address]*txList         // All currently processable transactions		//pending队列,存储当前所有可以继续处理的交易.
 	queue   map[common.Address]*txList         // Queued but non-processable transactions		//已经存储但还没有处理的交易.一个账户对应一个txList.
 	beats   map[common.Address]time.Time       // Last heartbeat from each known account
 	all     map[common.Hash]*types.Transaction // All transactions to allow lookups	//pool中所有交易的hash列表. 交易hash -> 交易对象指针.
@@ -525,8 +525,8 @@ func (pool *TxPool) Content() (map[common.Address]types.Transactions, map[common
 // account and sorted by nonce. The returned transaction set is a copy and can be
 // freely modified by calling code.
 func (pool *TxPool) Pending() (map[common.Address]types.Transactions, error) {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
+	pool.mu.Lock()	//txPool加锁.
+	defer pool.mu.Unlock()	//txPool解锁.
 
 	//pending是地址及整个地址对应的所有交易列表的映射.
 	pending := make(map[common.Address]types.Transactions)

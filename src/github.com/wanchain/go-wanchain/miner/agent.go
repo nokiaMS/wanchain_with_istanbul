@@ -27,12 +27,12 @@ import (
 
 //cpu代理。
 type CpuAgent struct {
-	mu sync.Mutex	//互斥锁.
+	mu sync.Mutex	//cpu agent对象锁.
 
-	workCh        chan *Work
+	workCh        chan *Work		//workCH,一个Work代表一个当前的挖矿环境,worker向这个通道放入一个Work对象,cpuAgent基于这个Work对象进行挖矿.
 	stop          chan struct{}	//channel,接收stop消息.
-	quitCurrentOp chan struct{}	//通道:退出当前操作.
-	returnCh      chan<- *Result
+	quitCurrentOp chan struct{}	//通道:退出当前操作事件.
+	returnCh      chan<- *Result	//挖矿结果通过这个通道返回,Result对象会从这个通道中读取.
 
 	chain  consensus.ChainReader	//访问本地区块链的不完备方法集合,用于header验证及uncle验证.
 	engine consensus.Engine		//共识算法引擎。
@@ -51,8 +51,10 @@ func NewCpuAgent(chain consensus.ChainReader, engine consensus.Engine) *CpuAgent
 	return miner
 }
 
-//返回Work指针类型的通道。
+//返回Work指针类型的通道,此通道为只写通道,意味着其他对象只能向这个通道中放入Work对象,然后cpuAgent会处理这个放入的Work对象.
 func (self *CpuAgent) Work() chan<- *Work            { return self.workCh }
+
+//设置agent的结果返回通道, ch为只写通道.
 func (self *CpuAgent) SetReturnCh(ch chan<- *Result) { self.returnCh = ch }
 
 //停止agent。
@@ -87,35 +89,39 @@ func (self *CpuAgent) update() {
 out:
 	for {
 		select {
-		case work := <-self.workCh:
-			self.mu.Lock()
+		case work := <-self.workCh:	//从agent的Work通道中读出worker传递过来的Work对象进行处理.
+			self.mu.Lock()		//cpu agent对象加锁.
 			if self.quitCurrentOp != nil {	//需要退出当前通道,则退出.
 				close(self.quitCurrentOp)	//关闭quitCurrentOp通道.
 			}
-			self.quitCurrentOp = make(chan struct{})
-			go self.mine(work, self.quitCurrentOp)
-			self.mu.Unlock()
+			self.quitCurrentOp = make(chan struct{})	//构建一个通道接收退出当前操作的事件.
+			go self.mine(work, self.quitCurrentOp)		//启动单一线程开始挖矿.
+			self.mu.Unlock()	//cpu agent对象解锁.
 		case <-self.stop:	//收到停止消息.
-			self.mu.Lock()
+			self.mu.Lock()	//cpu agent加锁.
 			if self.quitCurrentOp != nil {	//需要退出当前操作,则退出.
 				close(self.quitCurrentOp)	//关闭quitCurrentOp通道.
-				self.quitCurrentOp = nil
+				self.quitCurrentOp = nil	//quitCurrentOp属性设置为空.
 			}
-			self.mu.Unlock()
+			self.mu.Unlock() 	//cpu agent解锁.
 			break out	//跳出for循环,协程退出.
 		}
 	}
 }
 
+//mine() cpu agent开始挖矿.
+//work: 工作上下文;
+//stop: 如果挖矿出问题,那么向stop通道中发消息,
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
-	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {
+	//调用engine的Seal方法开始挖矿.
+	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {	//调用consensus engine接口挖掘新的区块.
 		log.Info("Successfully sealed new block", "number", result.Number(), "hash", result.Hash())
-		self.returnCh <- &Result{work, result}
-	} else {
+		self.returnCh <- &Result{work, result}	//挖出了新的区块,则把新区块通过returnCh通道返回给worker对象,worker对象会从这个通道中读取产生的区块并处理.
+	} else {	//块挖掘失败,此else为错误处理流程.
 		if err != nil {
 			log.Warn("Block sealing failed", "err", err)
 		}
-		self.returnCh <- nil
+		self.returnCh <- nil  //把nil放入returnCh中.
 	}
 }
 
