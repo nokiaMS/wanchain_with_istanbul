@@ -64,7 +64,7 @@ func (self *CpuAgent) Stop() {
 	}
 	self.stop <- struct{}{}		//像stop channel发送消息。
 done:
-	// Empty work channel	//清空work channel.
+	// Empty work channel	//清空work channel.已经缓存在work channel中的Work对象并不被处理,直接丢弃.
 	for {
 		select {
 		case <-self.workCh:
@@ -84,7 +84,7 @@ func (self *CpuAgent) Start() {
 	go self.update()
 }
 
-//事件监控.
+//监控Work对象到达消息及stop消息并处理.
 func (self *CpuAgent) update() {
 out:
 	for {

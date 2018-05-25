@@ -64,10 +64,10 @@ type Agent interface {
 // Work is the workers current environment and holds
 // all of the current state information
 type Work struct {
-	config *params.ChainConfig
+	config *params.ChainConfig	//配置参数.
 	signer types.Signer
 
-	state     *state.StateDB // apply state changes here
+	state     *state.StateDB // apply state changes here	//区块链整体状态.
 	ancestors *set.Set       // ancestor set (used for checking uncle parent validity)
 	family    *set.Set       // family set (used for checking uncle invalidity)
 	uncles    *set.Set       // uncle set
@@ -90,7 +90,7 @@ type Result struct {
 
 // worker is the main object which takes care of applying messages to the new state
 type worker struct {
-	config *params.ChainConfig
+	config *params.ChainConfig	//配置参数.
 	engine consensus.Engine		//共识算法引擎.
 
 	mu sync.Mutex	//worker对象操作的互斥锁.
@@ -114,7 +114,7 @@ type worker struct {
 	chainDb ethdb.Database
 
 	coinbase common.Address		//挖矿的账号.
-	extra    []byte
+	extra    []byte			//worker对象的extra数据.
 
 	currentMu sync.Mutex	//当前work对象锁.
 	current   *Work			//当前的work对象.
@@ -163,7 +163,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 	go worker.update()	//创建协程.等待并处理以上三个事件,
 
 	go worker.wait()    //创建协程,等待并处理cpuAgent挖掘出来并返回的区块.
-	worker.commitNewWork()  //组装区块准备提交.
+	worker.commitNewWork()  //组装区块提交给agent处理.
 
 	return worker
 }
@@ -175,17 +175,19 @@ func (self *worker) setEtherbase(addr common.Address) {
 	self.coinbase = addr	//设置worker的coinbase.
 }
 
+//设置extraData.
 func (self *worker) setExtra(extra []byte) {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	self.extra = extra
+	self.mu.Lock()	//worker对象加锁.
+	defer self.mu.Unlock()		//函数退出的时候worker对象解锁.
+	self.extra = extra		//设置extra data.
 }
 
+//获得当前pending块及相关的状态.
 func (self *worker) pending() (*types.Block, *state.StateDB) {
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
+	self.currentMu.Lock()	//加当前work对象锁.
+	defer self.currentMu.Unlock()	//函数退出时解除当前work对象锁.
 
-	if atomic.LoadInt32(&self.mining) == 0 {
+	if atomic.LoadInt32(&self.mining) == 0 {	//如果没有挖矿,那么临时构造一个对象并返回.
 		return types.NewBlock(
 			self.current.header,
 			self.current.txs,
@@ -193,14 +195,15 @@ func (self *worker) pending() (*types.Block, *state.StateDB) {
 			self.current.receipts,
 		), self.current.state.Copy()
 	}
-	return self.current.Block, self.current.state.Copy()
+	return self.current.Block /*当前pending的块*/, self.current.state.Copy() /*返回一个当前区块链状态的独立拷贝*/
 }
 
+//获得pending block.
 func (self *worker) pendingBlock() *types.Block {
-	self.currentMu.Lock()
-	defer self.currentMu.Unlock()
+	self.currentMu.Lock()	//当前Work对象加锁.
+	defer self.currentMu.Unlock()	//函数退出时自动给当前Work对象解锁.
 
-	if atomic.LoadInt32(&self.mining) == 0 {
+	if atomic.LoadInt32(&self.mining) == 0 {	//如果没有挖矿,那么组装一个新区块返回.
 		return types.NewBlock(
 			self.current.header,
 			self.current.txs,
@@ -208,7 +211,7 @@ func (self *worker) pendingBlock() *types.Block {
 			self.current.receipts,
 		)
 	}
-	return self.current.Block
+	return self.current.Block	//如果正在挖矿,那么返回当前已经生成但是还没有被确认上链的块.
 }
 
 //开始挖矿.
@@ -216,7 +219,7 @@ func (self *worker) start() {
 	self.mu.Lock()	//对worker对象加锁.
 	defer self.mu.Unlock()		//函数退出解锁.
 	atomic.StoreInt32(&self.mining, 1)		//设置正在挖矿的标志位.
-	if istanbul, ok := self.engine.(consensus.Istanbul); ok {	//如果使用ibft,那么启动ibft.
+	if istanbul, ok := self.engine.(consensus.Istanbul); ok {	//如果使用ibft,那么启动ibft.(把engine类型强制转换为Istanbul类型.t.(Type))
 		//如果是istanbul engine,那么进到此处.
 		istanbul.Start(self.chain, self.chain.CurrentBlock, self.chain.HasBadBlock)	//ibft启动.
 	}
@@ -231,15 +234,15 @@ func (self *worker) start() {
 func (self *worker) stop() {
 	self.wg.Wait()
 
-	self.mu.Lock()
-	defer self.mu.Unlock()
-	if atomic.LoadInt32(&self.mining) == 1 {
-		for agent := range self.agents {
-			agent.Stop()
+	self.mu.Lock()	//worker对象互斥锁加锁.
+	defer self.mu.Unlock()	//在函数退出的时候解锁.
+	if atomic.LoadInt32(&self.mining) == 1 {	//如果正在挖矿那么停止所有agent.
+		for agent := range self.agents {	//停止所有agent.
+			agent.Stop()	//停止agent.
 		}
 	}
-	atomic.StoreInt32(&self.mining, 0)
-	atomic.StoreInt32(&self.atWork, 0)
+	atomic.StoreInt32(&self.mining, 0)		//更改正在挖矿额标志位位0.
+	atomic.StoreInt32(&self.atWork, 0)		//更改正在工作的agent数量为0.
 }
 
 //注册agent到worker对象中.
@@ -383,6 +386,8 @@ func (self *worker) push(work *Work) {
 	if atomic.LoadInt32(&self.mining) != 1 {
 		return
 	}
+
+	//(在创建miner对象及worker对象的代码流程中会调用commitNewWork()函数,然而在这个时候cpu agent还没有创建,所以对象创建时执行commitNewWork()并不会走进下面这个循环.)
 	for agent := range self.agents {
 		atomic.AddInt32(&self.atWork, 1) //正在工作的agent计数加1,当前只有一个cpu agent,没有其他agent.
 		if ch := agent.Work(); ch != nil {		//获得agent的Work对象写入通道,然后把组装好的Work对象传递给agent.
@@ -425,7 +430,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 	return nil
 }
 
-//提交新的Work给agent.
+//组装新的Work给agent.
 func (self *worker) commitNewWork() {
 	self.mu.Lock()	//worker对象锁.
 	defer self.mu.Unlock()	//函数退出的时候解锁.
@@ -461,7 +466,7 @@ func (self *worker) commitNewWork() {
 		Time:       big.NewInt(tstamp),		//出块时间.
 	}
 
-	//设置去块头的coinbase为当前挖矿的账号.
+	//设置区块头的coinbase为当前挖矿的账号.
 	// Only set the coinbase if we are mining (avoid spurious block rewards)
 	if atomic.LoadInt32(&self.mining) == 1 {
 		header.Coinbase = self.coinbase

@@ -202,6 +202,8 @@ type storageblock struct {
 // are ignored and set to values derived from the given txs, uncles
 // and receipts.
 //创建一个新区块对象.
+//参数: 区块头, 交易列表, uncle块列表, 收据列表.
+//返回: 新创建的区块的指针.
 func NewBlock(header *Header, txs []*Transaction, uncles []*Header, receipts []*Receipt) *Block {
 	b := &Block{header: CopyHeader(header), td: new(big.Int)}
 

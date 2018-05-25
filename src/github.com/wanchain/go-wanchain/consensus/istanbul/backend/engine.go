@@ -493,7 +493,7 @@ func (sb *backend) Start(chain consensus.ChainReader, currentBlock func() *types
 
 	// clear previous data
 	sb.proposedBlockHash = common.Hash{}	//构造一个空的Hash.
-	if sb.commitCh != nil {	//channel不为空则关闭。
+	if sb.commitCh != nil {	//因为是重新启动了ibft,所有如果commitCh不为空说明有旧的存在,那么把旧通道关上并重新创建一个新的通道.
 		close(sb.commitCh)	//关闭channel.
 	}
 	sb.commitCh = make(chan *types.Block, 1) 	//重新创建一个channel,异步channel,缓冲区为1.

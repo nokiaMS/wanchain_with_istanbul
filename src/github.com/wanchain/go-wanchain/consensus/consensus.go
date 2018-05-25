@@ -118,13 +118,16 @@ type PoW interface {
 }
 
 // Istanbul is a consensus engine to avoid byzantine failure
+//istanbul 是一个采用拜占庭容错算法的共识算法.
 type Istanbul interface {
 	Engine
 
 	// Start starts the engine
+	//启动ibft engine. 链操作函数集,当前块,
 	Start(chain ChainReader, currentBlock func() *types.Block, hasBadBlock func(hash common.Hash) bool) error
 
 	// Stop stops the engine
+	//停止ibft engine.
 	Stop() error
 }
 

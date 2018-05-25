@@ -114,8 +114,8 @@ out:
 //coinbase: 使用此账号挖矿.
 func (self *Miner) Start(coinbase common.Address) {
 	atomic.StoreInt32(&self.shouldStart, 1)
-	self.worker.setEtherbase(coinbase)
-	self.coinbase = coinbase
+	self.worker.setEtherbase(coinbase)	//设置worker对象的coinbase.
+	self.coinbase = coinbase			//设置miner对象的coinbase.
 
 	//正在进行块同步,不能开始挖矿.
 	if atomic.LoadInt32(&self.canStart) == 0 {
@@ -126,7 +126,7 @@ func (self *Miner) Start(coinbase common.Address) {
 
 	log.Info("Starting mining operation")
 	self.worker.start()		//开始挖矿.
-	self.worker.commitNewWork()
+	self.worker.commitNewWork()		//组装新的work给agent,agent处理完成之后会把被共识算法确认好的block返回给worker.
 }
 
 //停止挖矿.
@@ -169,17 +169,19 @@ func (self *Miner) HashRate() (tot int64) {
 	return
 }
 
+//设置extraData.
 func (self *Miner) SetExtra(extra []byte) error {
 	if uint64(len(extra)) > params.MaximumExtraDataSize {
 		return fmt.Errorf("Extra exceeds max length. %d > %v", len(extra), params.MaximumExtraDataSize)
 	}
-	self.worker.setExtra(extra)
+	self.worker.setExtra(extra)		//设置extraData
 	return nil
 }
 
+//获得当前pending块及相关的状态.
 // Pending returns the currently pending block and associated state.
 func (self *Miner) Pending() (*types.Block, *state.StateDB) {
-	return self.worker.pending()
+	return self.worker.pending()  //获得当前pending块及相关的状态.
 }
 
 // PendingBlock returns the currently pending block.
@@ -187,8 +189,9 @@ func (self *Miner) Pending() (*types.Block, *state.StateDB) {
 // Note, to access both the pending block and the pending state
 // simultaneously, please use Pending(), as the pending state can
 // change between multiple method calls
+//获得当前pending的块(所谓的pending block就是已经组装好了但是还在确认中,还没有上链的块.)
 func (self *Miner) PendingBlock() *types.Block {
-	return self.worker.pendingBlock()
+	return self.worker.pendingBlock()	//获得pending block.
 }
 
 //设置挖矿使用的coinbase.
