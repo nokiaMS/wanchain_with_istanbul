@@ -89,12 +89,12 @@ type BlockChain struct {
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
 
-	mu      sync.RWMutex // global mutex for locking chain operations
+	mu      sync.RWMutex // global mutex for locking chain operations	//区块链锁.
 	chainmu sync.RWMutex // blockchain insertion lock
 	procmu  sync.RWMutex // block processor lock
 
 	checkpoint       int          // checkpoint counts towards the new checkpoint
-	currentBlock     *types.Block // Current head of the block chain
+	currentBlock     *types.Block // Current head of the block chain	//区块链当前的头.
 	currentFastBlock *types.Block // Current head of the fast-sync chain (may be above the block chain!)
 
 	stateCache   state.Database // State database to reuse between imports (contains state cache)
@@ -323,11 +323,12 @@ func (bc *BlockChain) LastBlockHash() common.Hash {
 
 // CurrentBlock retrieves the current head block of the canonical chain. The
 // block is retrieved from the blockchain's internal cache.
+//获得区块链当前的头.
 func (bc *BlockChain) CurrentBlock() *types.Block {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
+	bc.mu.RLock()	//区块链加锁.
+	defer bc.mu.RUnlock()	//函数退出解锁区块链.
 
-	return bc.currentBlock
+	return bc.currentBlock		//返回区块链当前的头.
 }
 
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical

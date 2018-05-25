@@ -51,6 +51,7 @@ func (c *core) Stop() error {
 // ----------------------------------------------------------------------------
 
 // Subscribe both internal and external events
+//ibft订阅外部事件和内部事件.
 func (c *core) subscribeEvents() {
 	c.events = c.backend.EventMux().Subscribe(
 		// external events

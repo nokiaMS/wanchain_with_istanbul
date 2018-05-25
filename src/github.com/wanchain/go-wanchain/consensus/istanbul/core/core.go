@@ -259,7 +259,7 @@ func (c *core) startNewRound(round *big.Int) {
 			c.sendPreprepare(c.current.pendingRequest)
 		}
 	}
-	c.newRoundChangeTimer()
+	c.newRoundChangeTimer()		//一个新的round开始的时候会启动一个超时定时器.
 
 	logger.Debug("New round", "new_round", newView.Round, "new_seq", newView.Sequence, "new_proposer", c.valSet.GetProposer(), "valSet", c.valSet.List(), "size", c.valSet.Size(), "isProposer", c.isProposer())
 }
