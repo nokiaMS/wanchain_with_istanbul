@@ -27,16 +27,18 @@ import (
 
 // headerRetriever is used by the unconfirmed block set to verify whether a previously
 // mined block is part of the canonical chain or not.
+//用来判断一个已经挖掘出来的块是否是主链的一部分。
 type headerRetriever interface {
 	// GetHeaderByNumber retrieves the canonical header associated with a block number.
-	GetHeaderByNumber(number uint64) *types.Header
+	GetHeaderByNumber(number uint64) *types.Header	//在主链上按照number获得header。
 }
 
 // unconfirmedBlock is a small collection of metadata about a locally mined block
 // that is placed into a unconfirmed set for canonical chain inclusion tracking.
+//unconfirmedBlock代表一个本地挖掘出来的块，这个块被放在unconfirmed集合中准备进行主链包含检测。
 type unconfirmedBlock struct {
-	index uint64
-	hash  common.Hash
+	index uint64	//块的number.
+	hash  common.Hash	//块的hash.
 }
 
 // unconfirmedBlocks implements a data structure to maintain locally mined blocks
@@ -51,6 +53,7 @@ type unconfirmedBlocks struct {
 }
 
 // newUnconfirmedBlocks returns new data structure to track currently unconfirmed blocks.
+//未被确认块的集合。
 func newUnconfirmedBlocks(chain headerRetriever, depth uint) *unconfirmedBlocks {
 	return &unconfirmedBlocks{
 		chain: chain,
@@ -59,6 +62,7 @@ func newUnconfirmedBlocks(chain headerRetriever, depth uint) *unconfirmedBlocks 
 }
 
 // Insert adds a new block to the set of unconfirmed ones.
+//向unconfirmedBlocks集合中插入一个新的unconfirmed block.
 func (set *unconfirmedBlocks) Insert(index uint64, hash common.Hash) {
 	// If a new block was mined locally, shift out any old enough blocks
 	set.Shift(index)
@@ -96,13 +100,13 @@ func (set *unconfirmedBlocks) Shift(height uint64) {
 			break
 		}
 		// Block seems to exceed depth allowance, check for canonical status
-		header := set.chain.GetHeaderByNumber(next.index)
+		header := set.chain.GetHeaderByNumber(next.index) 	//next.index即block的number，此函数通过number来确认block是否已经在主链中了。
 		switch {
-		case header == nil:
+		case header == nil:		//在主链中没有查到这个块。
 			log.Warn("Failed to retrieve header of mined block", "number", next.index, "hash", next.hash)
-		case header.Hash() == next.hash:
+		case header.Hash() == next.hash:	//块已经进入到了主链中。
 			log.Info("🔗 block reached canonical chain", "number", next.index, "hash", next.hash)
-		default:
+		default:	//能进入到default说明在主链中查到了
 			log.Info("⑂ block  became a side fork", "number", next.index, "hash", next.hash)
 		}
 		// Drop the block out of the ring

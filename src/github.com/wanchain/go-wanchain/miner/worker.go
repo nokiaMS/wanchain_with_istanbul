@@ -40,7 +40,7 @@ import (
 
 const (
 	resultQueueSize  = 10		//cpu agent处理的结果会返回到结果通道,此为结果通道的buffer大小.
-	miningLogAtDepth = 5
+	miningLogAtDepth = 5		//挖矿日志深度,用于存储unconfirmed块集合。
 
 	// txChanSize is the size of channel listening to TxPreEvent.
 	// The number is referenced from the size of tx pool.
@@ -150,7 +150,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		possibleUncles: make(map[common.Hash]*types.Block),
 		coinbase:       coinbase,	//挖矿用的账号.
 		agents:         make(map[Agent]struct{}),		//worker关联的agent列表.
-		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
+		unconfirmed:    newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),	//创建一个unconfirmed块集合。
 		miniSealTime:   12,
 	}
 
@@ -311,13 +311,13 @@ func (self *worker) update() {
 func (self *worker) wait() {
 	for {
 		mustCommitNewWork := true
-		for result := range self.recv {	//挖掘出了新的区块之后,agent会把已经经过公示算法确认的区块放入到recv通道,然后worker对象从recv通道中读取已经确认的区块进行处理.
+		for result := range self.recv {	//挖掘出了新的区块之后,agent会把已经经过共识算法确认的区块放入到recv通道,然后worker对象从recv通道中读取已经确认的区块进行处理.
 			atomic.AddInt32(&self.atWork, -1)	//从recv中读出一个块,说明一个agent实例已经完成了任务,因此atWork减1.
 
 			if result == nil {	//读出结果为空,则继续等待.
 				continue
 			}
-			block := result.Block	//获得已经被共识算法确认了的块.
+			block := result.Block	//获得已经开始共识的块。
 			work := result.Work		//获得此块对应的Work对象.
 
 			// waiting minimum sealing time
@@ -370,7 +370,7 @@ func (self *worker) wait() {
 			self.chain.PostChainEvents(events, logs)
 
 			// Insert the block into the set of pending ones to wait for confirmations
-			self.unconfirmed.Insert(block.NumberU64(), block.Hash())
+			self.unconfirmed.Insert(block.NumberU64(), block.Hash())	//把agent返回来已经经过共识算法确认的，并且已经写到链上的块放到unconfirmed块集合中等待确认。
 
 			if mustCommitNewWork {
 				self.commitNewWork()
@@ -472,7 +472,7 @@ func (self *worker) commitNewWork() {
 		header.Coinbase = self.coinbase
 	}
 
-	//调用了istanbul的Prepare()函数.
+	//调用了istanbul的Prepare()函数完成header对象的准备。.
 	if err := self.engine.Prepare(self.chain, header, atomic.LoadInt32(&self.mining) == 1); err != nil {
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
@@ -537,7 +537,7 @@ func (self *worker) commitNewWork() {
 	//}
 	uncles := []*types.Header{}
 	// Create the new block to seal with the consensus engine
-	//返回一个最终组装好了的块交给共识算法来确认.
+	//返回一个最终组装好了的块交给共识算法来确认.（给区块“定型”）
 	if work.Block, err = self.engine.Finalize(self.chain, header, work.state, work.txs, uncles, work.receipts); err != nil {
 		log.Error("Failed to finalize block for sealing", "err", err)
 		return
@@ -545,7 +545,7 @@ func (self *worker) commitNewWork() {
 	// We only care about logging if we're actually mining.
 	if atomic.LoadInt32(&self.mining) == 1 {
 		log.Info("Commit new mining work", "number", work.Block.Number(), "txs", work.tcount, "uncles", len(uncles), "elapsed", common.PrettyDuration(time.Since(tstart)))
-		self.unconfirmed.Shift(work.Block.NumberU64() - 1)
+		self.unconfirmed.Shift(work.Block.NumberU64() - 1)	//当前区块的Number减去1就是其parent区块的Number号。
 	}
 	self.push(work)	//把组装好的Work对象交给agent来处理.
 }
@@ -566,13 +566,13 @@ func (self *worker) commitUncle(work *Work, uncle *types.Header) error {
 }
 
 func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsByPriceAndNonce, bc *core.BlockChain, coinbase common.Address) {
-	gp := new(core.GasPool).AddGas(env.header.GasLimit)
+	gp := new(core.GasPool).AddGas(env.header.GasLimit)	//获得当前区块的gasLimit.
 
 	var coalescedLogs []*types.Log
 
 	for {
 		// Retrieve the next transaction and abort if all done
-		tx := txs.Peek()
+		tx := txs.Peek()	//返回按照交易价格排序后最头的交易。
 		if tx == nil {
 			break
 		}
@@ -645,13 +645,14 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 	}
 }
 
+//执行交易。
 func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
 
 	//真正执行交易的函数.
 	receipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.state, env.header, tx, env.header.GasUsed, vm.Config{})
 	if err != nil {
-		env.state.RevertToSnapshot(snap)
+		env.state.RevertToSnapshot(snap)	//交易如果执行失败，那么回退到执行之间的状态。
 		return err, nil
 	}
 	env.txs = append(env.txs, tx)
