@@ -292,7 +292,7 @@ func (self *worker) update() {
 				txs := map[common.Address]types.Transactions{acc: {ev.Tx}}
 				txset := types.NewTransactionsByPriceAndNonce(self.current.signer, txs)
 
-				self.current.commitTransactions(self.mux, txset, self.chain, self.coinbase  //此处会执行交易.
+				self.current.commitTransactions(self.mux, txset, self.chain, self.coinbase)  //此处会执行交易.
 				self.currentMu.Unlock()
 			}
 
