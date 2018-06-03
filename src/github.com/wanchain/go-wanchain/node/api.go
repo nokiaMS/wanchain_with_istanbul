@@ -254,6 +254,7 @@ func (api *PublicAdminAPI) NodeInfo() (*p2p.NodeInfo, error) {
 }
 
 // Datadir retrieves the current data directory the node is using.
+//在gwan attach的时候也会通过rpc接口来调用此函数.
 func (api *PublicAdminAPI) Datadir() string {
 	return api.node.DataDir()
 }
