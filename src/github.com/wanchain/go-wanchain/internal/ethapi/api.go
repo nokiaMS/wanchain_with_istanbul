@@ -1290,7 +1290,7 @@ type SendTxArgs struct {
 	To       *common.Address `json:"to"`		//交易目的方, 如果To为空,表示要创建一个新的合约(执行创建合约的交易),不为空则是执行一个正常交易.
 	Gas      *hexutil.Big    `json:"gas"`		//交易允许花费的最大gas数.
 	GasPrice *hexutil.Big    `json:"gasPrice"`	//每个gas的价格.
-	Value    *hexutil.Big    `json:"value"`
+	Value    *hexutil.Big    `json:"value"`	//转账的数额。
 	Data     hexutil.Bytes   `json:"data"`	//交易附加数据.
 	Nonce    *hexutil.Uint64 `json:"nonce"`	//交易的nonce值(唯一标识),同一账户的交易的nonce值不相同,不同账户的nonce值可能会相同.
 }
@@ -1298,10 +1298,10 @@ type SendTxArgs struct {
 // prepareSendTxArgs is a helper function that fills in default values for unspecified tx fields.
 //对没有指定的交易参数赋值为默认值.
 func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
-	if args.Gas == nil {
-		args.Gas = (*hexutil.Big)(big.NewInt(defaultGas))
+	if args.Gas == nil {	//设置交易的gas值。
+		args.Gas = (*hexutil.Big)(big.NewInt(defaultGas))	//设置nonce值为默认值。
 	}
-	if args.GasPrice == nil {
+	if args.GasPrice == nil {	//设置gasprice.
 		price, err := b.SuggestPrice(ctx)
 		if err != nil {
 			return err
@@ -1312,7 +1312,7 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		args.Value = new(hexutil.Big)
 	}
 	if args.Nonce == nil {
-		nonce, err := b.GetPoolNonce(ctx, args.From)	//nonce的值是在哪里增1的???
+		nonce, err := b.GetPoolNonce(ctx, args.From)	//nonce的值是在哪里增1的??? （在后面的流程，交易进入到txpool，然后nonce增1，然后广播给peers。）
 		if err != nil {
 			return err
 		}
@@ -1355,10 +1355,11 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 //用给定参数创建交易,给交易签名,然后提交交易到交易池中.
+//在命令行中执行命令 eth.sendTransaction({from:eth.accounts[0],to:eth.accounts[4],value:web3.toWin(500,'win')}) 发送交易会出发这个函数。
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
 
 	// Look up the wallet containing the requested signer
-	account := accounts.Account{Address: args.From} 	//创建一个新的账号对象.
+	account := accounts.Account{Address: args.From} 	//从交易的参数中读取发送交易的账户地址，根据地址生成一个新的账户对象。
 
 	//返回账号所在的钱包.出错函数退出.
 	wallet, err := s.b.AccountManager().Find(account)

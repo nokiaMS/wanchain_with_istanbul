@@ -182,6 +182,7 @@ func (b *EthApiBackend) ProtocolVersion() int {
 	return b.eth.EthVersion()
 }
 
+//获得建议price值。
 func (b *EthApiBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }

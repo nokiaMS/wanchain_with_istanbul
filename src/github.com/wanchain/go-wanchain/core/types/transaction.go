@@ -91,13 +91,15 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-//创建一个新的交易.
+//创建一个新的普通转账交易。
 func NewTransaction(nonce uint64, to common.Address, amount, gasLimit, gasPrice *big.Int, data []byte) *Transaction {
 	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)	//创建新的交易对象.
 }
 
+//合约创建会忽略args.value值。
+//返回一个合约创建的交易，data为合约内容。
 func NewContractCreation(nonce uint64, amount, gasLimit, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)	//to为nil表示创建一个新合约。
 }
 
 //创建新的交易.返回交易对象指针.

@@ -182,7 +182,7 @@ type TxPool struct {
 	config       TxPoolConfig
 	chainconfig  *params.ChainConfig
 	chain        blockChain
-	gasPrice     *big.Int
+	gasPrice     *big.Int		//交易的最小gasprice，小于这个值的交易会直接被丢弃。
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
 	chainHeadCh  chan ChainHeadEvent
@@ -197,8 +197,8 @@ type TxPool struct {
 	locals  *accountSet // Set of local transaction to exepmt from evicion rules
 	journal *txJournal  // Journal of local transaction to back up to disk		//备份到磁盘的本地交易日志.
 
-	pending map[common.Address]*txList         // All currently processable transactions		//pending队列,存储当前所有可以继续处理的交易.
-	queue   map[common.Address]*txList         // Queued but non-processable transactions		//已经存储但还没有处理的交易.一个账户对应一个txList.
+	pending map[common.Address]*txList         // All currently processable transactions		//pending队列,存储所有可执行交易。
+	queue   map[common.Address]*txList         // Queued but non-processable transactions		//queue存储准备检测与处理的交易，交易先进入queue，然后再由程序从queue移动到pending.一个账户对应一个txList.
 	beats   map[common.Address]time.Time       // Last heartbeat from each known account
 	all     map[common.Hash]*types.Transaction // All transactions to allow lookups	//pool中所有交易的hash列表. 交易hash -> 交易对象指针.
 	priced  *txPricedList                      // All transactions sorted by price		//按照价格排序的tx列表.
@@ -462,6 +462,7 @@ func (pool *TxPool) GasPrice() *big.Int {
 
 // SetGasPrice updates the minimum price required by the transaction pool for a
 // new transaction, and drops all transactions below this threshold.
+//设置交易的最小gasprice，小于这个值的交易会被丢弃。
 func (pool *TxPool) SetGasPrice(price *big.Int) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -661,6 +662,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		}
 	}
 	// If the transaction is replacing an already pending one, do directly
+	//交易直接放在pending队列中。
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
 		// Nonce already pending, check if required price bump is met
@@ -683,7 +685,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 		return old != nil, nil
 	}
 	// New transaction isn't replacing a pending one, push into queue
-	//把交易放入txpool.
+	//把交易放入txpool的queued队列中。
 	replace, err := pool.enqueueTx(hash, tx)
 	if err != nil {
 		return false, err
@@ -701,7 +703,8 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (bool, error) {
 // enqueueTx inserts a new transaction into the non-executable transaction queue.
 //
 // Note, this method assumes the pool lock is held!
-//把交易添加到txpool中.
+//把交易添加到txpool中，（此时是放在queued队列中，不是放在pending队列中。）
+//（交易如果nonce值与以前的不同，那么首先都是放在queued队列中，然后在后续步骤中再移动到pending队列中。）
 func (pool *TxPool) enqueueTx(hash common.Hash, tx *types.Transaction) (bool, error) {
 	// Try to insert the transaction into the future queue
 	from, _ := types.Sender(pool.signer, tx) // already validated
@@ -776,7 +779,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 	// Set the potentially new pending nonce and notify any subsystems of the new tx
 	pool.beats[addr] = time.Now()
 	pool.pendingState.SetNonce(addr, tx.Nonce()+1)
-	go pool.txFeed.Send(TxPreEvent{tx})
+	go pool.txFeed.Send(TxPreEvent{tx})	//在此处发出了TxPreEvent消息。
 }
 
 // AddLocal enqueues a single transaction into the pool if it is valid, marking
