@@ -186,12 +186,13 @@ func (api *PrivateMinerAPI) SetExtra(extra string) (bool, error) {
 }
 
 // SetGasPrice sets the minimum accepted gas price for the miner.
+//设置miner的最小的可接受的gasprice,也就是说如果一个交易的gasprice低于这个值那么这个交易可能不会被这个矿工接受.
 func (api *PrivateMinerAPI) SetGasPrice(gasPrice hexutil.Big) bool {
 	api.e.lock.Lock()
-	api.e.gasPrice = (*big.Int)(&gasPrice)
+	api.e.gasPrice = (*big.Int)(&gasPrice)	//设置ethereum对象的gasprice,此值与txpool中的gasprice相同.
 	api.e.lock.Unlock()
 
-	api.e.txPool.SetGasPrice((*big.Int)(&gasPrice))
+	api.e.txPool.SetGasPrice((*big.Int)(&gasPrice))	//设置txpool的gasprice价格.
 	return true
 }
 

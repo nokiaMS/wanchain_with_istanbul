@@ -38,8 +38,8 @@ import (
 
 // EthApiBackend implements ethapi.Backend for full nodes
 type EthApiBackend struct {
-	eth *Ethereum
-	gpo *gasprice.Oracle
+	eth *Ethereum	//Ethereum对象指针.
+	gpo *gasprice.Oracle	//gasprice oracle对象指针.用于决定块的gasprice.
 }
 
 func (b *EthApiBackend) ChainConfig() *params.ChainConfig {

@@ -38,6 +38,8 @@ type Config struct {
 
 // Oracle recommends gas prices based on the content of recent
 // blocks. Suitable for both light and full clients.
+//oracle翻译成权威,智囊.
+//Oracle对象会基于最近的几个块给出建议的gasprice. 对轻量节点和全节点都适用.
 type Oracle struct {
 	backend   ethapi.Backend
 	lastHead  common.Hash
@@ -50,6 +52,7 @@ type Oracle struct {
 }
 
 // NewOracle returns a new oracle.
+//创建一个新的gasprice oracle.
 func NewOracle(backend ethapi.Backend, params Config) *Oracle {
 	blocks := params.Blocks
 	if blocks < 1 {

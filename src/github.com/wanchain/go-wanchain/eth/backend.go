@@ -88,12 +88,13 @@ type Ethereum struct {
 	ApiBackend *EthApiBackend
 
 	miner     *miner.Miner
-	gasPrice  *big.Int
+	gasPrice  *big.Int		//Ethereum设置的gasPrice价格,低于这个价格的交易不会被接受.
 	etherbase common.Address	//挖矿使用的账号.
 
 	networkId     uint64
 	netRPCService *ethapi.PublicNetAPI
 
+	//Ethereum对象的锁.
 	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
 }
 
@@ -188,6 +189,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.GasPrice
 	}
+
+	//设置gasprice oracle,这个对象的作用是根据最近的几个块来决定建议的gasprice.
 	eth.ApiBackend.gpo = gasprice.NewOracle(eth.ApiBackend, gpoParams)
 
 	return eth, nil

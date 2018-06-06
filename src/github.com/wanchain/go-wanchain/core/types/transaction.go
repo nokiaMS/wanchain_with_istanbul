@@ -64,7 +64,7 @@ type txdata struct {
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`	//表示一个gas值多少钱.
 	GasLimit     *big.Int        `json:"gas"      gencodec:"required"`	//此交易执行所允许的gas上限.
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation	//目的账户,为空表示创建合约.
-	Amount       *big.Int        `json:"value"    gencodec:"required"`
+	Amount       *big.Int        `json:"value"    gencodec:"required"`	//转账的钱数
 	Payload      []byte          `json:"input"    gencodec:"required"`	//交易载荷,可以是合约代码也可以是后续传递给合约的参数.
 																				//合约由EVM来创建和执行.
 
@@ -279,9 +279,10 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 }
 
 // Cost returns amount + gasprice * gaslimit.
+//本次交易需要花费多少钱, 交易的price * 交易的gas上限 + 要转账多少钱.
 func (tx *Transaction) Cost() *big.Int {
-	total := new(big.Int).Mul(tx.data.Price, tx.data.GasLimit)
-	total.Add(total, tx.data.Amount)
+	total := new(big.Int).Mul(tx.data.Price, tx.data.GasLimit)		//交易费上限.
+	total.Add(total, tx.data.Amount)	//交易费上限 + 要转账的钱数.
 	return total
 }
 

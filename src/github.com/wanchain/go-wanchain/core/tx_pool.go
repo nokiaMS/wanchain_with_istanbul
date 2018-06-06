@@ -188,7 +188,7 @@ type TxPool struct {
 	chainHeadCh  chan ChainHeadEvent
 	chainHeadSub event.Subscription
 	signer       types.Signer
-	mu           sync.RWMutex		//读写锁,在添加交易到txpool中时会加鎖
+	mu           sync.RWMutex		//读写锁,对txpool对象操作的时候需要加锁.
 
 	currentState  *state.StateDB      // Current state in the blockchain head
 	pendingState  *state.ManagedState // Pending state tracking virtual nonces
@@ -467,8 +467,8 @@ func (pool *TxPool) SetGasPrice(price *big.Int) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	pool.gasPrice = price
-	for _, tx := range pool.priced.Cap(price, pool.locals) {
+	pool.gasPrice = price	//设置txpool中的gasprice.
+	for _, tx := range pool.priced.Cap(price, pool.locals) {	//根据新的gasprice对交易进行过滤.
 		pool.removeTx(tx.Hash())
 	}
 	log.Info("Transaction pool price threshold updated", "price", price)
@@ -556,6 +556,7 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 
 // validateTx checks whether a transaction is valid according to the consensus
 // rules and adheres to some heuristic limits of the local node (price and size).
+//验证交易是否有效.
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if !types.IsValidTransactionType(tx.Txtype()) {
 		return ErrInvalidTxType
@@ -582,6 +583,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
+	//检验是否低于gasPrice, 低于gasPrice的交易将不会被接受.
 	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
@@ -591,6 +593,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
+	//对于转账交易,账户中的余额需要大于本次交易的花费.
 	if types.IsNormalTransaction(tx.Txtype()) && pool.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return ErrInsufficientFunds
 	}
