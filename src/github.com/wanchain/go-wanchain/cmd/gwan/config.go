@@ -116,7 +116,7 @@ func defaultNodeConfig() node.Config {
 func makeConfigNode(ctx *cli.Context) (*node.Node, gethConfig) {
 	// Load defaults.
 	cfg := gethConfig{	//加载默认配置。
-		Eth:  eth.DefaultConfig,
+		Eth:  eth.DefaultConfig,	//如果命令行参数设置了对应的参数值,那么此处的eth.DefaultConfig中的值到这一步骤已经被修改成了命令行参数中传递过来的值.
 		Shh:  whisper.DefaultConfig,
 		Node: defaultNodeConfig(),
 	}
@@ -156,9 +156,9 @@ func enableWhisper(ctx *cli.Context) bool {
 
 //创建一个full node。
 func makeFullNode(ctx *cli.Context) *node.Node {
-	stack, cfg := makeConfigNode(ctx)
+	stack, cfg := makeConfigNode(ctx)	//返回一个p2p node对象和一个cfg对象.
 
-	utils.RegisterEthService(stack, &cfg.Eth)
+	utils.RegisterEthService(stack, &cfg.Eth)	//注册ethereum服务到p2p node上.
 
 	// Whisper must be explicitly enabled by specifying at least 1 whisper flag or in dev mode
 	shhEnabled := enableWhisper(ctx)

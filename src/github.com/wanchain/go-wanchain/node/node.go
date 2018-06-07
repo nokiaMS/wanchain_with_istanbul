@@ -167,7 +167,7 @@ func (n *Node) Start() error {
 
 	// Otherwise copy and specialize the P2P configuration
 	services := make(map[reflect.Type]Service)
-	for _, constructor := range n.serviceFuncs {
+	for _, constructor := range n.serviceFuncs {	//此处为之前注册的p2p node上的服务启动函数.
 		// Create a new context for the particular service
 		ctx := &ServiceContext{
 			config:         n.config,

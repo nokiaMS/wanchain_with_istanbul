@@ -44,10 +44,10 @@ var DefaultConfig = Config{
 	NetworkId:            1,
 	LightPeers:           20,
 	DatabaseCache:        128,
-	GasPrice:             big.NewInt(0).Mul(big.NewInt(18 * params.Shannon),params.WanGasTimesFactor),
+	GasPrice:             big.NewInt(0).Mul(big.NewInt(18 * params.Shannon),params.WanGasTimesFactor),	//这个值可能被命令行参数修改.
 
 	TxPool: core.DefaultTxPoolConfig,
-	GPO: gasprice.Config{
+	GPO: gasprice.Config{	//设置eth.GPO
 		Blocks:     10,
 		Percentile: 50,
 	},

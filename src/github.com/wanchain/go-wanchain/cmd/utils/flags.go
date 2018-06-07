@@ -54,7 +54,7 @@ import (
 	"github.com/wanchain/go-wanchain/p2p/netutil"
 	"github.com/wanchain/go-wanchain/params"
 	whisper "github.com/wanchain/go-wanchain/whisper/whisperv5"
-	"gopkg.in/urfave/cli.v1"
+	"gopkg.in/urfave/cli.v1"		//这是go语言的命令行参数库.
 )
 
 var (
@@ -88,8 +88,9 @@ GLOBAL OPTIONS:
 }
 
 // NewApp creates an app with sane defaults.
+//创建一个新的app.
 func NewApp(gitCommit, usage string) *cli.App {
-	app := cli.NewApp()
+	app := cli.NewApp()	//调用库函数创建一个新的app.
 	app.Name = filepath.Base(os.Args[0])
 	app.Author = ""
 	//app.Authors = nil
@@ -306,7 +307,7 @@ var (
 	GasPriceFlag = BigFlag{
 		Name:  "gasprice",
 		Usage: "Minimal gas price to accept for mining a transactions",
-		Value: eth.DefaultConfig.GasPrice,
+		Value: eth.DefaultConfig.GasPrice,	//此处为一个big.int的指针,命令行参数会对这个值做修改.
 	}
 	ExtraDataFlag = cli.StringFlag{
 		Name:  "extradata",
@@ -1050,6 +1051,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 }
 
 // RegisterEthService adds an Ethereum client to the stack.
+//向p2p node注册服务.
 func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 	var err error
 	if cfg.SyncMode == downloader.LightSync {
@@ -1058,6 +1060,7 @@ func RegisterEthService(stack *node.Node, cfg *eth.Config) {
 		})
 	} else {  //默认为FastSync.
 		//注册Ethereum服务构造函数到节点中.
+		//只是注册了服务启动函数,服务还没有运行.
 		err = stack.Register(func(ctx *node.ServiceContext) (node.Service, error) {
 			fullNode, err := eth.New(ctx, cfg)	//在构造函数中创建了一个新的Ethereum对象.
 			if fullNode != nil && cfg.LightServ > 0 {

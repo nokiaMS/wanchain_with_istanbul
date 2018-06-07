@@ -217,7 +217,7 @@ func main() {
 //创建并启动node。
 func geth(ctx *cli.Context) error {
 	node := makeFullNode(ctx) //创建一个full node。(node的概念对应于p2p网络层面,指p2p网络中的一个节点.)
-	startNode(ctx, node)	//启动node。
+	startNode(ctx, node)	//启动p2p node。
 	node.Wait()		//等待，直到geth程序退出。
 	return nil
 }
@@ -226,7 +226,6 @@ func geth(ctx *cli.Context) error {
 // it unlocks any requested accounts, and starts the RPC/IPC interfaces and the
 // miner.
 //启动node,做如下操作:
-
 func startNode(ctx *cli.Context, stack *node.Node) {
 	// Start up the node itself
 	utils.StartNode(stack)	//启动节点.
