@@ -47,7 +47,7 @@ var DefaultConfig = Config{
 	GasPrice:             big.NewInt(0).Mul(big.NewInt(18 * params.Shannon),params.WanGasTimesFactor),	//这个值可能被命令行参数修改.
 
 	TxPool: core.DefaultTxPoolConfig,
-	GPO: gasprice.Config{	//设置eth.GPO
+	GPO: gasprice.Config{	//默认的gpo参数.
 		Blocks:     10,
 		Percentile: 50,
 	},
