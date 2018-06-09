@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"sync"
 )
-
+//https://studygolang.com/pkgdoc go语言标准库中文文档。
+//https://golang.google.cn/ google的go网站。
 //sync.Once: once对象只会执行一次,不管Do()内的函数是相同还是不同.
 func case1()  {
 	var once sync.Once

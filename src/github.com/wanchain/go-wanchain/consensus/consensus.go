@@ -83,6 +83,7 @@ type Engine interface {
 	// and assembles the final block.
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
+	//Finalize函数用于对于交易执行完成之后对状态进行修改并且组装成最终的区块。在这个过程中区块头及状态数据库会发生变化来反映在finalization时的共识规则。
 	Finalize(chain ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 		uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error)
 

@@ -67,7 +67,7 @@ type Work struct {
 	config *params.ChainConfig	//配置参数.
 	signer types.Signer
 
-	state     *state.StateDB // apply state changes here	//区块链整体状态.
+	state     *state.StateDB // apply state changes here	//存储区块链的状态变化。
 	ancestors *set.Set       // ancestor set (used for checking uncle parent validity)
 	family    *set.Set       // family set (used for checking uncle invalidity)
 	uncles    *set.Set       // uncle set
@@ -399,7 +399,7 @@ func (self *worker) push(work *Work) {
 // makeCurrent creates a new environment for the current cycle.
 // 生成一个新的Work对象.
 func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error {
-	state, err := self.chain.StateAt(parent.Root())
+	state, err := self.chain.StateAt(parent.Root())	//从parent的root创建一个新的状态。
 	if err != nil {
 		return err
 	}
@@ -457,7 +457,7 @@ func (self *worker) commitNewWork() {
 	}
 
 	num := parent.Number()	//获得parent Block编号.
-	header := &types.Header{	//生成一个新的区块头.
+	header := &types.Header{	//生成一个新的区块头.此时header中的Root字段还为空。
 		ParentHash: parent.Hash(),	//parent区块的hash.
 		Number:     num.Add(num, common.Big1),	// 返回parent的Number +1.
 		GasLimit:   core.CalcGasLimit(parent),	// 计算区块的gasLimit.
@@ -473,7 +473,7 @@ func (self *worker) commitNewWork() {
 	}
 
 	//调用了istanbul的Prepare()函数完成header对象的准备。.
-	if err := self.engine.Prepare(self.chain, header, atomic.LoadInt32(&self.mining) == 1); err != nil {
+	if err := self.engine.Prepare(self.chain, header, atomic.LoadInt32(&self.mining) == 1); err != nil {	//istanbul中也没有对header中的root赋值。
 		log.Error("Failed to prepare header for mining", "err", err)
 		return
 	}

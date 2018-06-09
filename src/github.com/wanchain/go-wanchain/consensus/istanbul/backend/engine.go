@@ -382,10 +382,11 @@ func (sb *backend) Prepare(chain consensus.ChainReader, header *types.Header, mi
 //
 // Note, the block header and state database might be updated to reflect any
 // consensus rules that happen at finalization (e.g. block rewards).
+//在此处给header的Root赋值。
 func (sb *backend) Finalize(chain consensus.ChainReader, header *types.Header, state *state.StateDB, txs []*types.Transaction,
 	uncles []*types.Header, receipts []*types.Receipt) (*types.Block, error) {
 	// No block rewards in Istanbul, so the state remains as is and uncles are dropped
-	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
+	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))	//此处给header的Root赋值。
 	header.UncleHash = nilUncleHash
 
 	// Assemble and return the final block for sealing
