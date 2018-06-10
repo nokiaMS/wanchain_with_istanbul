@@ -72,9 +72,9 @@ type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`		//当前区块的父区块.
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`		//当前区块的uncle区块.
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`		//挖出此区块的账号.
-	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`
-	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`
-	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`
+	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`		//状态树.
+	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`		//交易树.
+	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`		//回执树.
 	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
 	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
 	Number      *big.Int       `json:"number"           gencodec:"required"`		//当前区块的Number是其parent区块的值+1

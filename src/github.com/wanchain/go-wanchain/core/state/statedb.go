@@ -81,6 +81,7 @@ type StateDB struct {
 }
 
 // Create a new state from a given trie
+// 从给定的root中生成一个新的状态.
 func New(root common.Hash, db Database) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
@@ -274,8 +275,9 @@ func (self *StateDB) HasSuicided(addr common.Address) bool {
  */
 
 // AddBalance adds amount to the account associated with addr
+// 向地址addr关联的账户增加amount数量的钱.
 func (self *StateDB) AddBalance(addr common.Address, amount *big.Int) {
-	stateObject := self.GetOrNewStateObject(addr)
+	stateObject := self.GetOrNewStateObject(addr)	//获得addr对应的状态对象,为空则自动创建.
 	if stateObject != nil {
 		stateObject.AddBalance(amount)
 	}
@@ -398,6 +400,7 @@ func (self *StateDB) setStateObject(object *stateObject) {
 }
 
 // Retrieve a state object or create a new state object if nil
+// 获得addr对应的状态对象,如果为空则自动创建.
 func (self *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
 	stateObject := self.getStateObject(addr)
 	if stateObject == nil || stateObject.deleted {

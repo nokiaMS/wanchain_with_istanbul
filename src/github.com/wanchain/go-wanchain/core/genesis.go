@@ -152,28 +152,30 @@ func (e *GenesisMismatchError) Error() string {
 //
 // The returned chain configuration is never nil.
 
+//db:数据库对象; genesis: 从genesis.json配置文件中解析出来的genesis对象.
 func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig, common.Hash, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllProtocolChanges, common.Hash{}, errGenesisNoConfig
 	}
 
 	// Just commit the new block if there is no stored genesis block.
-	stored := GetCanonicalHash(db, 0)
-	if (stored == common.Hash{}) {
-		if genesis == nil {
+	stored := GetCanonicalHash(db, 0)	//查找是否已经存在了创世块,
+	if (stored == common.Hash{}) {	//如果不存在创世块.
+		if genesis == nil {		//如果没有提供genensis.json文件,则生成默认的创世块.
 			log.Info("Writing default main-net genesis block")
-			genesis = DefaultGenesisBlock()
-		} else if genesis.Config.ChainId.Cmp(big.NewInt(3)) == 0 {
+			genesis = DefaultGenesisBlock()		//默认返回主网对应的创世块.
+		} else if genesis.Config.ChainId.Cmp(big.NewInt(3)) == 0 {		//如果genesis中的chainid为3,则生成test net的创世块.
 			log.Info("Writing default  test net genesis block")
 			genesis = DefaultTestnetGenesisBlock()
 		} else {
 			log.Info("Writing custom genesis block")
 		}
-		block, err := genesis.Commit(db)
+		block, err := genesis.Commit(db)	//否则把提供的创世块提交到数据库中.
 		return genesis.Config, block.Hash(), err
 	}
 
 	// Check whether the genesis block is already written.
+	// 判断当前genesis对象产生的块与数据库中的块是否相同,相同继续,不同报错.
 	if genesis != nil {
 		block, _ := genesis.ToBlock()
 		hash := block.Hash()
@@ -232,19 +234,21 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ToBlock creates the block and state of a genesis specification.
+// 从genesis配置对象中生成一个块结构及状态数据库.
 func (g *Genesis) ToBlock() (*types.Block, *state.StateDB) {
-	db, _ := ethdb.NewMemDatabase()
-	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
+	db, _ := ethdb.NewMemDatabase()		//生成一个新的内存数据库.
+	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))	//生成根statedb.
 	for addr, account := range g.Alloc {
-		statedb.AddBalance(addr, account.Balance)
-		statedb.SetCode(addr, account.Code)
-		statedb.SetNonce(addr, account.Nonce)
-		for key, value := range account.Storage {
+		statedb.AddBalance(addr, account.Balance)	//修改账户余额.
+		statedb.SetCode(addr, account.Code)		//如果有智能合约则添加智能合约代码.
+		statedb.SetNonce(addr, account.Nonce)	//设置账户nonce.
+		for key, value := range account.Storage {	//设置账户的storage.
 			statedb.SetState(addr, key, value)
 		}
 	}
+	//根据当前状态树状态生成一个中间root hash.
 	root := statedb.IntermediateRoot(false)
-	head := &types.Header{
+	head := &types.Header{	//生成块头.
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
 		Time:       new(big.Int).SetUint64(g.Timestamp),
@@ -255,42 +259,54 @@ func (g *Genesis) ToBlock() (*types.Block, *state.StateDB) {
 		Difficulty: g.Difficulty,
 		MixDigest:  g.Mixhash,
 		Coinbase:   g.Coinbase,
-		Root:       root,
+		Root:       root,	//在配置完genesis相关字段之后计算了状态树.
 	}
+	//如果没有配置gas limit,则采用代码中的默认值.
 	if g.GasLimit == 0 {
 		head.GasLimit = params.GenesisGasLimit
 	}
+
+	//如果难度没有配置,则采用代码中的默认值.
 	if g.Difficulty == nil {
 		head.Difficulty = params.GenesisDifficulty
 	}
+	//创建一个新区块,然后返回这个新区块及statedb.
 	return types.NewBlock(head, nil, nil, nil), statedb
 }
 
 // Commit writes the block and state of a genesis specification to the database.
 // The block is committed as the canonical head block.
+// 把g本身写入到数据中,而且作为主链的第一个节点.返回genesis块的指针.
 func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
-	block, statedb := g.ToBlock()
+	block, statedb := g.ToBlock()	//生成区块及当前的state db.
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
+	//更新db状态.
 	if _, err := statedb.CommitTo(db, false); err != nil {
 		return nil, fmt.Errorf("cannot write state: %v", err)
 	}
+	//写入total difficulty.
 	if err := WriteTd(db, block.Hash(), block.NumberU64(), g.Difficulty); err != nil {
 		return nil, err
 	}
+	//写块到数据库.
 	if err := WriteBlock(db, block); err != nil {
 		return nil, err
 	}
+	//写块回执到数据库.
 	if err := WriteBlockReceipts(db, block.Hash(), block.NumberU64(), nil); err != nil {
 		return nil, err
 	}
+	//写主链hash到数据库.
 	if err := WriteCanonicalHash(db, block.Hash(), block.NumberU64()); err != nil {
 		return nil, err
 	}
+	//写head block hash到数据库.
 	if err := WriteHeadBlockHash(db, block.Hash()); err != nil {
 		return nil, err
 	}
+	//写head header hash到数据库.
 	if err := WriteHeadHeaderHash(db, block.Hash()); err != nil {
 		return nil, err
 	}
@@ -334,6 +350,7 @@ func DefaultPPOWTestingGenesisBlock() *Genesis {
 }
 
 // DefaultGenesisBlock returns the Ethereum main net genesis block.
+// 默认创世块返回主网的创世块.
 func DefaultGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.WanchainChainConfig,
@@ -347,6 +364,7 @@ func DefaultGenesisBlock() *Genesis {
 }
 
 // DefaultTestnetGenesisBlock returns the Ropsten network genesis block.
+// 默认返回测试网的创世块.
 func DefaultTestnetGenesisBlock() *Genesis {
 	return &Genesis{
 		Config:     params.TestnetChainConfig,

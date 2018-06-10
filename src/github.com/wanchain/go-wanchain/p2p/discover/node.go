@@ -39,10 +39,11 @@ const NodeIDBits = 512
 
 // Node represents a host on the network.
 // The fields of Node may not be modified.
+//p2p网络中的一个节点.
 type Node struct {
-	IP       net.IP // len 4 for IPv4 or 16 for IPv6
-	UDP, TCP uint16 // port numbers
-	ID       NodeID // the node's public key
+	IP       net.IP // len 4 for IPv4 or 16 for IPv6	//节点的ip地址.
+	UDP, TCP uint16 // port numbers						//udp和tcp端口号.
+	ID       NodeID // the node's public key			//节点Id,也是节点公钥.
 
 	// This is a cached copy of sha3(ID) which is used for node
 	// distance calculations. This is part of Node in order to make it

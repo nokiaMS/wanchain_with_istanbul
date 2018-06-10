@@ -69,7 +69,7 @@ type Node struct {
 	wsHandler  *rpc.Server  // Websocket RPC request handler to process the API requests
 
 	stop chan struct{} // Channel to wait for termination notifications	//termination notification通道.
-	lock sync.RWMutex
+	lock sync.RWMutex	//node锁。
 }
 
 // New creates a new P2P node, ready for protocol registration.
@@ -134,8 +134,8 @@ func (n *Node) Register(constructor ServiceConstructor) error {
 // Start create a live P2P node and starts running it.
 //节点启动.
 func (n *Node) Start() error {
-	n.lock.Lock()
-	defer n.lock.Unlock()
+	n.lock.Lock()	//对node加锁。
+	defer n.lock.Unlock()	//start()函数退出之后解锁。
 
 	// Short circuit if the node's already running
 	//节点已经运行,直接退出.
@@ -153,16 +153,16 @@ func (n *Node) Start() error {
 	n.serverConfig = n.config.P2P
 	n.serverConfig.PrivateKey = n.config.NodeKey()
 	n.serverConfig.Name = n.config.NodeName()
-	if n.serverConfig.StaticNodes == nil {
+	if n.serverConfig.StaticNodes == nil {	//从配置文件中读取静态节点列表.
 		n.serverConfig.StaticNodes = n.config.StaticNodes()
 	}
-	if n.serverConfig.TrustedNodes == nil {
+	if n.serverConfig.TrustedNodes == nil {	//从配置文件中读取信任节点列表.
 		n.serverConfig.TrustedNodes = n.config.TrustedNodes()
 	}
 	if n.serverConfig.NodeDatabase == "" {
 		n.serverConfig.NodeDatabase = n.config.NodeDB()
 	}
-	running := &p2p.Server{Config: n.serverConfig}
+	running := &p2p.Server{Config: n.serverConfig}		//创建p2p server.
 	log.Info("Starting peer-to-peer node", "instance", n.serverConfig.Name)
 
 	// Otherwise copy and specialize the P2P configuration
@@ -650,10 +650,14 @@ func (n *Node) EventMux() *event.TypeMux {
 // OpenDatabase opens an existing database with the given name (or creates one if no
 // previous can be found) from within the node's instance directory. If the node is
 // ephemeral, a memory database is returned.
+// 如果文件夹不存在,则生成gwan文件夹,及其内部的文件夹及文件.
+// 对于full node, 会生成gwan文件夹,gwan下回生成chaindata文件夹,chaindata文件夹下会生成000001.log,CURRENT,LOCK,LOG,MANIFEST-000000文件.
+// 对于light node,会在gwan下生成lightchaindata文件夹,在lightchaindata文件夹下回生成000001.log,CURRENT,LOCK,LOG,MANIFEST-000000文件.
 func (n *Node) OpenDatabase(name string, cache, handles int) (ethdb.Database, error) {
 	if n.config.DataDir == "" {
-		return ethdb.NewMemDatabase()
+		return ethdb.NewMemDatabase()	//创建一个内存数据库.
 	}
+	//创建一个levelDB磁盘数据库.
 	return ethdb.NewLDBDatabase(n.config.resolvePath(name), cache, handles)
 }
 

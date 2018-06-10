@@ -142,30 +142,34 @@ Use "ethereum dump 0" to dump the genesis block.`,
 
 // initGenesis will initialise the given JSON format genesis file and writes it as
 // the zero'd block (i.e. genesis) or will fail hard if it can't succeed.
+//gwan init会走到这个函数.
+//主要作用是创建及初始化full node及light node的数据库及创世块.
 func initGenesis(ctx *cli.Context) error {
 	// Make sure we have a valid genesis JSON
-	genesisPath := ctx.Args().First()
-	if len(genesisPath) == 0 {
+	genesisPath := ctx.Args().First()	//获得gwan init后的第一个参数,即genesis.json文件路径.
+	if len(genesisPath) == 0 {	//init命令必须有一个genesis.json文件,没有报错.
 		utils.Fatalf("Must supply path to genesis JSON file")
 	}
+
+	//开发genesis.json文件,打开失败报错.
 	file, err := os.Open(genesisPath)
 	if err != nil {
 		utils.Fatalf("Failed to read genesis file: %v", err)
 	}
 	defer file.Close()
 
-	genesis := new(core.Genesis)
-	if err := json.NewDecoder(file).Decode(genesis); err != nil {
+	genesis := new(core.Genesis)	//创建genesis对象.
+	if err := json.NewDecoder(file).Decode(genesis); err != nil {	//把genesis.json文件中的内容解析到genesis对象中.
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
 	// Open an initialise both full and light databases
-	stack := makeFullNode(ctx)
-	for _, name := range []string{"chaindata", "lightchaindata"} {
-		chaindb, err := stack.OpenDatabase(name, 0, 0)
+	stack := makeFullNode(ctx)	//创建一个full node节点.
+	for _, name := range []string{"chaindata", "lightchaindata"} {		//会在gwan下生成两个文件夹chaindata和lightchaindata,chaindata和lightchaindata就是两个数据库.
+		chaindb, err := stack.OpenDatabase(name, 0, 0)	//OpenDatabase会生成gwan文件夹及其内部文件夹及文件.
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
 		}
-		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)
+		_, hash, err := core.SetupGenesisBlock(chaindb, genesis)	//把创世块写入到数据库中.
 		if err != nil {
 			utils.Fatalf("Failed to write genesis block: %v", err)
 		}

@@ -65,7 +65,7 @@ func errResp(code errCode, format string, v ...interface{}) error {
 
 //ProtocolManager是管理node之间p2p通信的顶层结构。
 type ProtocolManager struct {
-	networkId uint64
+	networkId uint64	//网络id.
 
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing) //是否可以接收及处理消息的标志.
@@ -76,8 +76,8 @@ type ProtocolManager struct {
 	chainconfig *params.ChainConfig
 	maxPeers    int		//p2p的最大通信对端数。
 
-	downloader *downloader.Downloader  //（用于发送）负责所有向相邻个体主动发起的同步流程。
-	fetcher    *fetcher.Fetcher  //（用于接收）负责累积所有其他个体(有可能是peer，也有可能节点内的其他模块)发送来的有关新数据的宣布消息，并在自身对照后，安排相应的获取请求。
+	downloader *downloader.Downloader  //(被动获取)负责所有向相邻个体主动发起的同步流程。
+	fetcher    *fetcher.Fetcher  //(主动获取)负责累积所有其他个体(有可能是peer，也有可能节点内的其他模块)发送来的有关新数据的宣布消息，并在自身对照后，安排相应的获取请求。
 	peers      *peerSet		//peers列表。
 
 	SubProtocols []p2p.Protocol

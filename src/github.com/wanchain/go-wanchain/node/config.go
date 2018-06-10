@@ -38,7 +38,7 @@ import (
 const (
 	datadirPrivateKey      = "nodekey"            // Path within the datadir to the node's private key
 	datadirDefaultKeyStore = "keystore"           // Path within the datadir to the keystore
-	datadirStaticNodes     = "static-nodes.json"  // Path within the datadir to the static node list
+	datadirStaticNodes     = "static-nodes.json"  // Path within the datadir to the static node list	静态节点文件名称.
 	datadirTrustedNodes    = "trusted-nodes.json" // Path within the datadir to the trusted node list
 	datadirNodeDatabase    = "nodes"              // Path within the datadir to store the node infos
 )
@@ -64,7 +64,7 @@ type Config struct {
 	// registered services, instead those can use utility methods to create/access
 	// databases or flat files. This enables ephemeral nodes which can fully reside
 	// in memory.
-	DataDir string
+	DataDir string	//如果DataDir为空,那么会创建一个内存数据库,如果DataDir不为空那么会创建一个level db的硬盘数据库.
 
 	// Configuration of peer-to-peer networking.
 	P2P p2p.Config
@@ -248,11 +248,12 @@ var isOldGethResource = map[string]bool{
 }
 
 // resolvePath resolves path in the instance directory.
+//返回配置文件全路径.
 func (c *Config) resolvePath(path string) string {
-	if filepath.IsAbs(path) {
+	if filepath.IsAbs(path) {	//如果是绝对路径,那么直接返回path.
 		return path
 	}
-	if c.DataDir == "" {
+	if c.DataDir == "" {	//如果没有配置datadir,返回空.
 		return ""
 	}
 	// Backwards-compatibility: ensure that data directory files created
@@ -318,11 +319,13 @@ func (c *Config) NodeKey() *ecdsa.PrivateKey {
 }
 
 // StaticNodes returns a list of node enode URLs configured as static nodes.
+//返回配置文件static-nodes.json中的节点列表.
 func (c *Config) StaticNodes() []*discover.Node {
 	return c.parsePersistentNodes(c.resolvePath(datadirStaticNodes))
 }
 
 // TrustedNodes returns a list of node enode URLs configured as trusted nodes.
+//返回配置文件trusted-nodes.json中的节点列表.
 func (c *Config) TrustedNodes() []*discover.Node {
 	return c.parsePersistentNodes(c.resolvePath(datadirTrustedNodes))
 }

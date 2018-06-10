@@ -57,6 +57,8 @@ type LDBDatabase struct {
 }
 
 // NewLDBDatabase returns a LevelDB wrapped object.
+// 创建一个level db数据库.	(level db是一个goole实现的高效的kv数据库.)
+// 此函数会创建gwan/chaindata或者gwan/lightchaindata中的各种文件,其实chaindata和lightchaindata文件夹即是一个数据库.
 func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	logger := log.New("database", file)
 
@@ -70,7 +72,7 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	logger.Info("Allocated cache and file handles", "cache", cache, "handles", handles)
 
 	// Open the db and recover any potential corruptions
-	db, err := leveldb.OpenFile(file, &opt.Options{
+	db, err := leveldb.OpenFile(file, &opt.Options{	//创建数据库对象,对于full node, file为.../gwan/chaindata.
 		OpenFilesCacheCapacity: handles,
 		BlockCacheCapacity:     cache / 2 * opt.MiB,
 		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
@@ -83,7 +85,7 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LDBDatabase{
+	return &LDBDatabase{	//返回数据库对象.
 		fn:  file,
 		db:  db,
 		log: logger,

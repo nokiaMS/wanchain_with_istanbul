@@ -52,8 +52,8 @@ var (
 	headerPrefix        = []byte("h") // headerPrefix + num (uint64 big endian) + hash -> header
 	tdSuffix            = []byte("t") // headerPrefix + num (uint64 big endian) + hash + tdSuffix -> td
 	numSuffix           = []byte("n") // headerPrefix + num (uint64 big endian) + numSuffix -> hash
-	blockHashPrefix     = []byte("H") // blockHashPrefix + hash -> num (uint64 big endian)
-	bodyPrefix          = []byte("b") // bodyPrefix + num (uint64 big endian) + hash -> block body
+	blockHashPrefix     = []byte("H") // blockHashPrefix + hash -> num (uint64 big endian)			//block header前缀.
+	bodyPrefix          = []byte("b") // bodyPrefix + num (uint64 big endian) + hash -> block body	//block body前缀.
 	blockReceiptsPrefix = []byte("r") // blockReceiptsPrefix + num (uint64 big endian) + hash -> block receipts
 	lookupPrefix        = []byte("l") // lookupPrefix + hash -> transaction/receipt lookup metadata
 	bloomBitsPrefix     = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
@@ -83,6 +83,7 @@ type txLookupEntry struct {
 }
 
 // encodeBlockNumber encodes a block number as big endian uint64
+//把block number转换成大端.
 func encodeBlockNumber(number uint64) []byte {
 	enc := make([]byte, 8)
 	binary.BigEndian.PutUint64(enc, number)
@@ -90,6 +91,8 @@ func encodeBlockNumber(number uint64) []byte {
 }
 
 // GetCanonicalHash retrieves a hash assigned to a canonical block number.
+// 从数据库db中查找编号为number的块的hash.
+// 获得number对应的块的hash值,如果number块不存在则返回为空hash结构.
 func GetCanonicalHash(db DatabaseReader, number uint64) common.Hash {
 	data, _ := db.Get(append(append(headerPrefix, encodeBlockNumber(number)...), numSuffix...))
 	if len(data) == 0 {
@@ -376,16 +379,20 @@ func WriteHeadFastBlockHash(db ethdb.Putter, hash common.Hash) error {
 }
 
 // WriteHeader serializes a block header into the database.
+// 把block header写入到数据库中.
+//write header会向数据库中写入两个数据:
+//    一个是 "H" + header hash -> encnum.
+//    另外一个是 "h" + encnum + header hash -> rlp转换后的header.
 func WriteHeader(db ethdb.Putter, header *types.Header) error {
-	data, err := rlp.EncodeToBytes(header)
+	data, err := rlp.EncodeToBytes(header)	//对header进行rlp编码.
 	if err != nil {
 		return err
 	}
-	hash := header.Hash().Bytes()
-	num := header.Number.Uint64()
-	encNum := encodeBlockNumber(num)
-	key := append(blockHashPrefix, hash...)
-	if err := db.Put(key, encNum); err != nil {
+	hash := header.Hash().Bytes()	//header的hash.
+	num := header.Number.Uint64()	//获得header的number.即块的number.
+	encNum := encodeBlockNumber(num)	//转换block number为大端表示.
+	key := append(blockHashPrefix, hash...)		//"H" + block header hash.
+	if err := db.Put(key, encNum); err != nil {	//写入数据库.
 		log.Crit("Failed to store hash to number mapping", "err", err)
 	}
 	key = append(append(headerPrefix, encNum...), hash...)
@@ -396,8 +403,9 @@ func WriteHeader(db ethdb.Putter, header *types.Header) error {
 }
 
 // WriteBody serializes the body of a block into the database.
+// 把block body写到数据库中.
 func WriteBody(db ethdb.Putter, hash common.Hash, number uint64, body *types.Body) error {
-	data, err := rlp.EncodeToBytes(body)
+	data, err := rlp.EncodeToBytes(body)	//对body进行rlp编码.
 	if err != nil {
 		return err
 	}
@@ -405,9 +413,10 @@ func WriteBody(db ethdb.Putter, hash common.Hash, number uint64, body *types.Bod
 }
 
 // WriteBodyRLP writes a serialized body of a block into the database.
+// 把rlp编码之后的block body写入到数据库中.
 func WriteBodyRLP(db ethdb.Putter, hash common.Hash, number uint64, rlp rlp.RawValue) error {
-	key := append(append(bodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
-	if err := db.Put(key, rlp); err != nil {
+	key := append(append(bodyPrefix, encodeBlockNumber(number)...), hash.Bytes()...)	//body的key是 字符b + block number + block hash.
+	if err := db.Put(key, rlp); err != nil {	//以kv的形式写入到数据库中.
 		log.Crit("Failed to store block body", "err", err)
 	}
 	return nil
@@ -427,11 +436,14 @@ func WriteTd(db ethdb.Putter, hash common.Hash, number uint64, td *big.Int) erro
 }
 
 // WriteBlock serializes a block into the database, header and body separately.
+// 把一个块写到数据库中,header和body分别写入.
 func WriteBlock(db ethdb.Putter, block *types.Block) error {
 	// Store the body first to retain database consistency
+	//为了保证数据库一致性,首先写入body.
 	if err := WriteBody(db, block.Hash(), block.NumberU64(), block.Body()); err != nil {
 		return err
 	}
+	//写完body之后再写入block的header.
 	// Store the header too, signaling full block ownership
 	if err := WriteHeader(db, block.Header()); err != nil {
 		return err
@@ -575,6 +587,7 @@ func WriteBlockChainVersion(db ethdb.Putter, vsn int) {
 }
 
 // WriteChainConfig writes the chain config settings to the database.
+// 把chain config写入到数据库中.
 func WriteChainConfig(db ethdb.Putter, hash common.Hash, cfg *params.ChainConfig) error {
 	// short circuit and ignore if nil config. GetChainConfig
 	// will return a default.

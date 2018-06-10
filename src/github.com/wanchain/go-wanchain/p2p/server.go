@@ -59,7 +59,7 @@ var errServerStopped = errors.New("server stopped")
 // Config holds Server options.
 type Config struct {
 	// This field must be set to a valid secp256k1 private key.
-	PrivateKey *ecdsa.PrivateKey `toml:"-"`
+	PrivateKey *ecdsa.PrivateKey `toml:"-"`	//私钥.
 
 	// MaxPeers is the maximum number of peers that can be
 	// connected. It must be greater than zero.
@@ -96,11 +96,11 @@ type Config struct {
 
 	// Static nodes are used as pre-configured connections which are always
 	// maintained and re-connected on disconnects.
-	StaticNodes []*discover.Node
+	StaticNodes []*discover.Node	//静态节点列表. 是预先配置的,在链接断开之后总会自动重连.
 
 	// Trusted nodes are used as pre-configured connections which are always
 	// allowed to connect, even above the peer limit.
-	TrustedNodes []*discover.Node
+	TrustedNodes []*discover.Node	//受信节点列表, 是预先配置的, 即使节点达到了链接上限,这些节点也是可以连接的.
 
 	// Connectivity can be restricted to certain IP networks.
 	// If this option is set to a non-nil value, only hosts which match one of the
@@ -131,7 +131,7 @@ type Config struct {
 
 	// If Dialer is set to a non-nil value, the given Dialer
 	// is used to dial outbound peer connections.
-	Dialer NodeDialer `toml:"-"`
+	Dialer NodeDialer `toml:"-"`	//向peer主动发起连接请求.
 
 	// If NoDial is true, the server will not dial any peers.
 	NoDial bool `toml:",omitempty"`
@@ -152,8 +152,8 @@ type Server struct {
 	newTransport func(net.Conn) transport
 	newPeerHook  func(*Peer)
 
-	lock    sync.Mutex // protects running
-	running bool
+	lock    sync.Mutex // protects running	//p2p server操作锁.
+	running bool	//p2p server是否正在运行的标志.
 
 	ntab         discoverTable
 	listener     net.Listener
@@ -165,12 +165,12 @@ type Server struct {
 	peerOp     chan peerOpFunc
 	peerOpDone chan struct{}
 
-	quit          chan struct{}
-	addstatic     chan *discover.Node
-	removestatic  chan *discover.Node
+	quit          chan struct{}	//通道:传递服务退出消息.
+	addstatic     chan *discover.Node	//通道: 增加静态节点.
+	removestatic  chan *discover.Node	//通道: 删除静态节点.
 	posthandshake chan *conn
-	addpeer       chan *conn
-	delpeer       chan peerDrop
+	addpeer       chan *conn		//通道:增加peer.
+	delpeer       chan peerDrop	//通道:删除peer.
 	loopWG        sync.WaitGroup // loop, listenLoop
 	peerFeed      event.Feed
 }
@@ -353,13 +353,14 @@ func (srv *Server) Stop() {
 
 // Start starts running the server.
 // Servers can not be re-used after stopping.
+//启动p2p server.
 func (srv *Server) Start() (err error) {
-	srv.lock.Lock()
-	defer srv.lock.Unlock()
-	if srv.running {
+	srv.lock.Lock()		//p2p server加锁.
+	defer srv.lock.Unlock()	//p2p server解锁.
+	if srv.running {	//如果运行不会再次启动.
 		return errors.New("server already running")
 	}
-	srv.running = true
+	srv.running = true	//设置running标志位为true,表示正在运行.
 	log.Info("Starting P2P networking")
 
 	// static fields
