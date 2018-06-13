@@ -160,6 +160,7 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		log.Warn("Sanitizing invalid txpool journal time", "provided", conf.Rejournal, "updated", time.Second)
 		conf.Rejournal = time.Second
 	}
+	//如果price limit小于1,那么强制设置成1.
 	if conf.PriceLimit < 1 {
 		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultTxPoolConfig.PriceLimit)
 		conf.PriceLimit = DefaultTxPoolConfig.PriceLimit
@@ -182,7 +183,7 @@ type TxPool struct {
 	config       TxPoolConfig
 	chainconfig  *params.ChainConfig
 	chain        blockChain
-	gasPrice     *big.Int		//交易的最小gasprice，小于这个值的交易会直接被丢弃。
+	gasPrice     *big.Int		//交易的最小gasprice，小于这个值的非本地交易会被丢弃,对于本地交易,默认不受这个参数限制,但是可以通过参数控制是否对本地交易做限制.
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
 	chainHeadCh  chan ChainHeadEvent
@@ -210,11 +211,13 @@ type TxPool struct {
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
 // trnsactions from the network.
+//创建一个txpool.
 func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain blockChain) *TxPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
-	config = (&config).sanitize()
+	config = (&config).sanitize() 	//对用户配置的不适合的参数强制修改成系统要求的值.
 
 	// Create the transaction pool with its initial settings
+	//创建一个txpool.
 	pool := &TxPool{
 		config:      config,
 		chainconfig: chainconfig,
@@ -227,7 +230,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		chainHeadCh: make(chan ChainHeadEvent, chainHeadChanSize),
 		gasPrice:    new(big.Int).SetUint64(config.PriceLimit),
 	}
-	pool.locals = newAccountSet(pool.signer)
+	pool.locals = newAccountSet(pool.signer)	//目前本地账户只有pool的signer.
 	pool.priced = newTxPricedList(&pool.all)
 	pool.reset(nil, chain.CurrentBlock().Header())
 

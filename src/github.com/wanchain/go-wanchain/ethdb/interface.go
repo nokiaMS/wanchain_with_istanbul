@@ -21,24 +21,26 @@ package ethdb
 const IdealBatchSize = 100 * 1024
 
 // Putter wraps the database write operation supported by both batches and regular databases.
+// 数据库写操作.
 type Putter interface {
 	Put(key []byte, value []byte) error
 }
 
 // Database wraps all database operations. All methods are safe for concurrent use.
+//Database数据库接口定义了所有的数据库操作,所有方法都需要能够安全的提供并发操作.
 type Database interface {
-	Putter
-	Get(key []byte) ([]byte, error)
-	Has(key []byte) (bool, error)
-	Delete(key []byte) error
-	Close()
-	NewBatch() Batch
+	Putter								//提供数据库写入接口.
+	Get(key []byte) ([]byte, error)		//提供key获得对应的value.
+	Has(key []byte) (bool, error)		//判断数据库中key是否存在.
+	Delete(key []byte) error			//从数据库中删除key对应的项.
+	Close()								//关闭数据库.
+	NewBatch() Batch					//创建一个批量操作的batch对象.
 }
 
 // Batch is a write-only database that commits changes to its host database
 // when Write is called. Batch cannot be used concurrently.
-type Batch interface {
-	Putter
-	ValueSize() int // amount of data in the batch
-	Write() error
+type Batch interface {	//批量操作接口.
+	Putter	//写入操作.
+	ValueSize() int // amount of data in the batch	batch中的数据个数.
+	Write() error	// batch中的Write()函数不支持并发.
 }

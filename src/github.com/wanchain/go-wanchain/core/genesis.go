@@ -282,7 +282,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if block.Number().Sign() != 0 {
 		return nil, fmt.Errorf("can't commit genesis block with number > 0")
 	}
-	//更新db状态.
+	//更新db状态到数据库.
 	if _, err := statedb.CommitTo(db, false); err != nil {
 		return nil, fmt.Errorf("cannot write state: %v", err)
 	}
@@ -294,7 +294,7 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if err := WriteBlock(db, block); err != nil {
 		return nil, err
 	}
-	//写块回执到数据库.
+	//写块回执到数据库, 创世块中没有回执,因此传递receipts为空.
 	if err := WriteBlockReceipts(db, block.Hash(), block.NumberU64(), nil); err != nil {
 		return nil, err
 	}
@@ -310,11 +310,13 @@ func (g *Genesis) Commit(db ethdb.Database) (*types.Block, error) {
 	if err := WriteHeadHeaderHash(db, block.Hash()); err != nil {
 		return nil, err
 	}
+
+	//写chain config到数据库.
 	config := g.Config
 	if config == nil {
 		config = params.AllProtocolChanges
 	}
-	return block, WriteChainConfig(db, block.Hash(), config)
+	return block, WriteChainConfig(db, block.Hash(), config)	//写chain config到数据库,然后返回block, err.
 }
 
 // MustCommit writes the genesis block and state to db, panicking on error.

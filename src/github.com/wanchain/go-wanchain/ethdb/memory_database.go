@@ -26,17 +26,19 @@ import (
 /*
  * This is a test memory database. Do not use for any production it does not get persisted
  */
+ //内存数据库.
 type MemDatabase struct {
-	db   map[string][]byte
-	lock sync.RWMutex
+	db   map[string][]byte		//数据库,其实就是 string -> []byte 的map.
+	lock sync.RWMutex			//内存数据库操作的读写锁.
 }
 
-func NewMemDatabase() (*MemDatabase, error) {
-	return &MemDatabase{
+//生成一个新的内存数据库,其实一个内存数据库就是一个string->[]byte的map.
+func NewMemDatabase() (*MemDatabase, error) {	//返回一个MemDatabase的指针及一个error.
+	return &MemDatabase{	//创建一个MemDatabase.
 		db: make(map[string][]byte),
 	}, nil
 }
-
+//写记录到数据库.
 func (db *MemDatabase) Put(key []byte, value []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -45,6 +47,7 @@ func (db *MemDatabase) Put(key []byte, value []byte) error {
 	return nil
 }
 
+//判断数据库中是否有key项.
 func (db *MemDatabase) Has(key []byte) (bool, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -53,6 +56,7 @@ func (db *MemDatabase) Has(key []byte) (bool, error) {
 	return ok, nil
 }
 
+//获得key索引的数据项.
 func (db *MemDatabase) Get(key []byte) ([]byte, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -63,6 +67,7 @@ func (db *MemDatabase) Get(key []byte) ([]byte, error) {
 	return nil, errors.New("not found")
 }
 
+//获得数据库中的所有key.
 func (db *MemDatabase) Keys() [][]byte {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -82,6 +87,7 @@ func (db *MemDatabase) GetKeys() []*common.Key {
 }
 */
 
+//删除以key为索引的项.
 func (db *MemDatabase) Delete(key []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -90,26 +96,31 @@ func (db *MemDatabase) Delete(key []byte) error {
 	return nil
 }
 
+//关闭数据库.
 func (db *MemDatabase) Close() {}
 
+//创建一个新的batch对象,用于批处理.
 func (db *MemDatabase) NewBatch() Batch {
 	return &memBatch{db: db}
 }
 
 type kv struct{ k, v []byte }
 
+//memBatch对象,用于批量操作.
 type memBatch struct {
 	db     *MemDatabase
 	writes []kv
 	size   int
 }
 
+//向batch中写入数据.
 func (b *memBatch) Put(key, value []byte) error {
 	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value)})
 	b.size += len(value)
 	return nil
 }
 
+//批量写入内存数据库.
 func (b *memBatch) Write() error {
 	b.db.lock.Lock()
 	defer b.db.lock.Unlock()
@@ -120,6 +131,7 @@ func (b *memBatch) Write() error {
 	return nil
 }
 
+//返回memBatch的大小.
 func (b *memBatch) ValueSize() int {
 	return b.size
 }

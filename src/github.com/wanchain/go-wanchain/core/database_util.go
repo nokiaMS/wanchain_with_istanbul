@@ -44,8 +44,8 @@ type DatabaseDeleter interface {
 }
 
 var (
-	headHeaderKey = []byte("LastHeader")
-	headBlockKey  = []byte("LastBlock")
+	headHeaderKey = []byte("LastHeader")	//链头块的header的key.
+	headBlockKey  = []byte("LastBlock")	//链头块的key.
 	headFastKey   = []byte("LastFast")
 
 	// Data item prefixes (use single byte to avoid mixing data types, avoid `i`).
@@ -59,7 +59,7 @@ var (
 	bloomBitsPrefix     = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
 	preimagePrefix = "secure-key-"              // preimagePrefix + hash -> preimage
-	configPrefix   = []byte("ethereum-config-") // config prefix for the db
+	configPrefix   = []byte("ethereum-config-") // config prefix for the db		//chain config前缀.
 
 	// Chain index prefixes (use `i` + single byte to avoid mixing data types).
 	BloomBitsIndexPrefix = []byte("iB") // BloomBitsIndexPrefix is the data table of a chain indexer to track its progress
@@ -346,15 +346,17 @@ func GetBloomBits(db DatabaseReader, bit uint, section uint64, head common.Hash)
 }
 
 // WriteCanonicalHash stores the canonical hash for the given block number.
+// 存储canonical hash即创世块的块hash到数据库.
 func WriteCanonicalHash(db ethdb.Putter, hash common.Hash, number uint64) error {
-	key := append(append(headerPrefix, encodeBlockNumber(number)...), numSuffix...)
-	if err := db.Put(key, hash.Bytes()); err != nil {
+	key := append(append(headerPrefix, encodeBlockNumber(number)...), numSuffix...)	// "h"+block number+"n"
+	if err := db.Put(key, hash.Bytes()); err != nil {	//把创世块hash写入到数据库中.
 		log.Crit("Failed to store number to hash mapping", "err", err)
 	}
 	return nil
 }
 
 // WriteHeadHeaderHash stores the head header's hash.
+// 把当前块的header写入到数据库中.
 func WriteHeadHeaderHash(db ethdb.Putter, hash common.Hash) error {
 	if err := db.Put(headHeaderKey, hash.Bytes()); err != nil {
 		log.Crit("Failed to store last header's hash", "err", err)
@@ -363,8 +365,9 @@ func WriteHeadHeaderHash(db ethdb.Putter, hash common.Hash) error {
 }
 
 // WriteHeadBlockHash stores the head block's hash.
+// 把当前链的链头块写入到数据库中.
 func WriteHeadBlockHash(db ethdb.Putter, hash common.Hash) error {
-	if err := db.Put(headBlockKey, hash.Bytes()); err != nil {
+	if err := db.Put(headBlockKey, hash.Bytes()); err != nil {		//当前的链头块写入到数据库中.
 		log.Crit("Failed to store last block's hash", "err", err)
 	}
 	return nil
@@ -423,13 +426,14 @@ func WriteBodyRLP(db ethdb.Putter, hash common.Hash, number uint64, rlp rlp.RawV
 }
 
 // WriteTd serializes the total difficulty of a block into the database.
+// 写block difficulty到数据库中.
 func WriteTd(db ethdb.Putter, hash common.Hash, number uint64, td *big.Int) error {
-	data, err := rlp.EncodeToBytes(td)
+	data, err := rlp.EncodeToBytes(td)	//对difficulty进行rlp编码.
 	if err != nil {
 		return err
 	}
-	key := append(append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...), tdSuffix...)
-	if err := db.Put(key, data); err != nil {
+	key := append(append(append(headerPrefix, encodeBlockNumber(number)...), hash.Bytes()...), tdSuffix...)	// "h" + 大端block number + 块hash + "t" -> rlp形式的block difficulty.
+	if err := db.Put(key, data); err != nil {	//写入数据库.
 		log.Error("Failed to store block total difficulty", "err", err)
 	}
 	return nil
@@ -454,19 +458,21 @@ func WriteBlock(db ethdb.Putter, block *types.Block) error {
 // WriteBlockReceipts stores all the transaction receipts belonging to a block
 // as a single receipt slice. This is used during chain reorganisations for
 // rescheduling dropped transactions.
+// 把一个块中的所有交易回执写到数据库中.
+// 在生成创世块的时候传递的receipts为空.
 func WriteBlockReceipts(db ethdb.Putter, hash common.Hash, number uint64, receipts types.Receipts) error {
 	// Convert the receipts into their storage form and serialize them
 	storageReceipts := make([]*types.ReceiptForStorage, len(receipts))
 	for i, receipt := range receipts {
 		storageReceipts[i] = (*types.ReceiptForStorage)(receipt)
 	}
-	bytes, err := rlp.EncodeToBytes(storageReceipts)
+	bytes, err := rlp.EncodeToBytes(storageReceipts)	//对块中的所有回执做rlp编码.
 	if err != nil {
 		return err
 	}
 	// Store the flattened receipt slice
-	key := append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)
-	if err := db.Put(key, bytes); err != nil {
+	key := append(append(blockReceiptsPrefix, encodeBlockNumber(number)...), hash.Bytes()...)	// "r"+block number+块哈希
+	if err := db.Put(key, bytes); err != nil {	//把块中的所有回执写入到数据库.
 		log.Crit("Failed to store block receipts", "err", err)
 	}
 	return nil
@@ -595,12 +601,12 @@ func WriteChainConfig(db ethdb.Putter, hash common.Hash, cfg *params.ChainConfig
 		return nil
 	}
 
-	jsonChainConfig, err := json.Marshal(cfg)
+	jsonChainConfig, err := json.Marshal(cfg)	//对对象做序列化.
 	if err != nil {
 		return err
 	}
 
-	return db.Put(append(configPrefix, hash[:]...), jsonChainConfig)
+	return db.Put(append(configPrefix, hash[:]...), jsonChainConfig)	//把序列化后的对象写入到数据库中.
 }
 
 // GetChainConfig will fetch the network settings based on the given hash.
