@@ -493,6 +493,8 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 
 // Underpriced checks whether a transaction is cheaper than (or as cheap as) the
 // lowest priced transaction currently being tracked.
+// 对本地交易一律返回false.
+// 对非本地交易,如果交易的price小于或者等于交易池的中交易的最小gasprice,则返回true; 否则返回false.
 func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) bool {
 	// Local transactions cannot be underpriced
 	if local.containsTx(tx) {
@@ -513,8 +515,8 @@ func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) boo
 		log.Error("Pricing query for empty pool") // This cannot happen, print to catch programming errors
 		return false
 	}
-	cheapest := []*types.Transaction(*l.items)[0]
-	return cheapest.GasPrice().Cmp(tx.GasPrice()) >= 0
+	cheapest := []*types.Transaction(*l.items)[0]	//返回最便宜的交易.
+	return cheapest.GasPrice().Cmp(tx.GasPrice()) >= 0		//判断当前交易和目前在txpool中的最偏的交易的gasprice哪个大,如果当前交易的price小,那么返回true.
 }
 
 // Discard finds a number of most underpriced transactions, removes them from the

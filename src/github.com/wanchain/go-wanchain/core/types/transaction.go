@@ -422,13 +422,13 @@ type TransactionsByPriceAndNonce struct {
 func NewTransactionsByPriceAndNonce(signer Signer, txs map[common.Address]Transactions) *TransactionsByPriceAndNonce {
 	// Initialize a price based heap with the head transactions
 	heads := make(TxByPrice, 0, len(txs))
-	for _, accTxs := range txs {
+	for _, accTxs := range txs {	//对于txpool中的所有交易做处理.
 		heads = append(heads, accTxs[0])
 		// Ensure the sender address is from the signer
 		acc, _ := Sender(signer, accTxs[0])
 		txs[acc] = accTxs[1:]
 	}
-	heap.Init(&heads)
+	heap.Init(&heads)	//构造heads为一个堆结构.
 
 	// Assemble and return the transaction set
 	return &TransactionsByPriceAndNonce{
