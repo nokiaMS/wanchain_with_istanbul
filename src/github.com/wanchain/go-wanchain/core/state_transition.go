@@ -89,12 +89,14 @@ type Message interface {
 // with the given data.
 //
 // TODO convert to uint64
+//计算交易固有gas.
+//data: 交易中带有的负载,一般在智能合约交易的创建和执行过程中此字段才被赋值;在转账交易中不会用到负载字段.
 func IntrinsicGas(data []byte, contractCreation, homestead bool) *big.Int {
 	igas := new(big.Int)
 	if contractCreation && homestead {
-		igas.SetUint64(params.TxGasContractCreation)
+		igas.SetUint64(params.TxGasContractCreation)		//如果是合约创建交易,则固有gas需要53000.
 	} else {
-		igas.SetUint64(params.TxGas)
+		igas.SetUint64(params.TxGas)	//如果不是合约创建,那么固有gas的默认值为21000.
 	}
 	if len(data) > 0 {
 		var nz int64
@@ -134,6 +136,7 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // the gas used (which includes gas refunds) and an error if it failed. An error always
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
+// 执行交易。
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, *big.Int, bool, error) {
 	st := NewStateTransition(evm, msg, gp)
 
@@ -175,7 +178,7 @@ func (st *StateTransition) useGas(amount uint64) error {
 }
 
 func (st *StateTransition) buyGas() error {
-	mgas := st.msg.Gas()
+	mgas := st.msg.Gas()	//返回交易的gas（最大使用的gas数量。）
 	if mgas.BitLen() > 64 {
 		return vm.ErrOutOfGas
 	}

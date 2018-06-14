@@ -190,7 +190,7 @@ func init() {
 		// Start system runtime metrics collection
 		go metrics.CollectProcessMetrics(3 * time.Second)	//单独协程收集进程运行信息。
 
-		utils.SetupNetwork(ctx)
+		utils.SetupNetwork(ctx)		//设置targetgaslimit的默认值.
 		return nil
 	}
 

@@ -201,7 +201,9 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte   { return common.CopyBytes(tx.data.Payload) }
+//获得交易负载.
+func (tx *Transaction) Data() []byte   { return common.CopyBytes(tx.data.Payload) }	//获得交易的负载,一般这个负载用于合约的创建和执行,转账交易不会用到这个负载.
+//获得交易类型.
 func (tx *Transaction) Txtype() uint64 { return tx.data.Txtype }
 
 func (tx *Transaction) Gas() *big.Int      { return new(big.Int).Set(tx.data.GasLimit) }

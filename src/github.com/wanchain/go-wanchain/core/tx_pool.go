@@ -193,7 +193,7 @@ type TxPool struct {
 
 	currentState  *state.StateDB      // Current state in the blockchain head
 	pendingState  *state.ManagedState // Pending state tracking virtual nonces
-	currentMaxGas *big.Int            // Current gas limit for transaction caps
+	currentMaxGas *big.Int            // Current gas limit for transaction caps	//即创世块中设置的GasLimit.
 
 	locals  *accountSet // Set of local transaction to exepmt from evicion rules
 	journal *txJournal  // Journal of local transaction to back up to disk		//备份到磁盘的本地交易日志.
@@ -232,7 +232,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	}
 	pool.locals = newAccountSet(pool.signer)	//目前本地账户只有pool的signer.
 	pool.priced = newTxPricedList(&pool.all)
-	pool.reset(nil, chain.CurrentBlock().Header())
+	pool.reset(nil, chain.CurrentBlock().Header())	//以當前鏈頭的header作為參數.
 
 	// If local transactions and journaling is enabled, load from disk
 	if !config.NoLocals && config.Journal != "" {
@@ -601,12 +601,12 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 		return ErrInsufficientFunds
 	}
 
+	//计算交易的固有gas.
 	intrGas := IntrinsicGas(tx.Data(), tx.To() == nil, pool.homestead)
 	if types.IsNormalTransaction(tx.Txtype()) {
 		if tx.Gas().Cmp(intrGas) < 0 {
 			return ErrIntrinsicGas
 		}
-
 	} else {
 		err := ValidPrivacyTx(pool.currentState, from.Bytes(), tx.Data(), tx.GasPrice(), intrGas, tx.Value(), pool.currentMaxGas)
 		if err != nil {
@@ -948,7 +948,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) {
 			pool.priced.Removed()
 		}
 		// Drop all transactions that are too costly (low balance or out of gas)
-		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)
+		drops, _ := list.Filter(pool.currentState.GetBalance(addr), pool.currentMaxGas)	//去掉账户余额不够支付的交易及超过txpool的currentMaxGas限制的交易.
 		for _, tx := range drops {
 			if types.IsNormalTransaction(tx.Txtype()) {
 				hash := tx.Hash()
