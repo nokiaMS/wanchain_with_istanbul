@@ -18,6 +18,7 @@ package core
 
 import "github.com/wanchain/go-wanchain/consensus/istanbul"
 
+//获得传递给共识算法的Request,里面包含了要进行共识的块.
 func (c *core) handleRequest(request *istanbul.Request) error {
 	logger := c.logger.New("state", c.state, "seq", c.current.sequence)
 

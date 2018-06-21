@@ -678,6 +678,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 	case msg.Code == TxMsg:	//处理从peer发送过来的交易.
+		log.Info("guoxu get a new transaction from peer.")
 		// Transactions arrived, make sure we have a valid and fresh chain to handle them
 		//判断当前是否可以接受交易,如果可以那么就继续处理,如果不可以则直接跳出case.
 		if atomic.LoadUint32(&pm.acceptTxs) == 0 {
