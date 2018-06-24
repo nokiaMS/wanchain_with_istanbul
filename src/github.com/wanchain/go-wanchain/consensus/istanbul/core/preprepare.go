@@ -28,6 +28,7 @@ import (
 func (c *core) sendPreprepare(request *istanbul.Request) {
 	logger := c.logger.New("state", c.state)
 
+	//在sendPprepare函数中,会判断当前的Node是不是proposer,只有是proposer的时候才会发送preparepare消息,如果不是proposer,岁然也执行了sendPrepare()函数但是不会发送preprepare消息.
 	// If I'm the proposer and I have the same sequence with the proposal
 	if c.current.Sequence().Cmp(request.Proposal.Number()) == 0 && c.isProposer() {
 		curView := c.currentView()
