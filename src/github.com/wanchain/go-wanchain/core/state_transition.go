@@ -177,30 +177,31 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
+//购买gas,从账户余额减去需要的gas.
 func (st *StateTransition) buyGas() error {
-	mgas := st.msg.Gas()	//返回交易的gas（最大使用的gas数量。）
+	mgas := st.msg.Gas()	//返回交易的gas（最大使用的gas数量。）,交易配置的gaslimit.
 	if mgas.BitLen() > 64 {
 		return vm.ErrOutOfGas
 	}
 
-	mgval := new(big.Int).Mul(mgas, st.gasPrice)
+	mgval := new(big.Int).Mul(mgas, st.gasPrice)	//计算这个交易最多需要花费多少钱. gas*price.
 
 	var (
 		state  = st.state
 		sender = st.from()
 	)
 
-	if state.GetBalance(sender.Address()).Cmp(mgval) < 0 {
+	if state.GetBalance(sender.Address()).Cmp(mgval) < 0 {	//获得发送交易的账户的余额,如果余额不足则返回错误.
 		return errInsufficientBalanceForGas
 	}
 
-	if err := st.gp.SubGas(mgas); err != nil {
+	if err := st.gp.SubGas(mgas); err != nil {	//gas pool里面减去此次交易的gas,gas pool为块的gas limit,此处的mgas为交易的gas limit.均为设计到真实的交易花费.
 		return err
 	}
 	st.gas += mgas.Uint64()
 
 	st.initialGas.Set(mgas)
-	state.SubBalance(sender.Address(), mgval)
+	state.SubBalance(sender.Address(), mgval)	//从账户余额中减去本次交易的费用.(费用为本次交易的gas limit * gas price)
 	return nil
 }
 
@@ -217,7 +218,7 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
-	return st.buyGas()
+	return st.buyGas()	//buyGas的目的是从gp中减去响应的gas,并且从账户余额中减去响应的余额并判断gas及price是否达到要求,能够继续执行交易.
 }
 
 // TransitionDb will transition the state by applying the current message and returning the result
@@ -237,7 +238,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, requiredGas, usedGas *big
 	sender := st.from() // err checked in preCheck
 
 	//homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
-	contractCreation := msg.To() == nil
+	contractCreation := msg.To() == nil		//如果message的to为空,表示当前的交易用来创建合约.
 
 	// Pay intrinsic gas
 	// TODO convert to uint64
