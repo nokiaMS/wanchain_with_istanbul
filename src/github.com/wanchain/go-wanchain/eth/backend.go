@@ -262,6 +262,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, config *Config, chainConfig
 		log.Warn("Ethash used in shared mode")
 		return ethash.NewShared()
 	default:
+		//默认使用PoW共识算法.
 		engine := ethash.New(ctx.ResolvePath(config.EthashCacheDir), config.EthashCachesInMem, config.EthashCachesOnDisk,
 			config.EthashDatasetDir, config.EthashDatasetsInMem, config.EthashDatasetsOnDisk, db)
 		engine.SetThreads(-1) // Disable CPU mining

@@ -232,7 +232,7 @@ func (self *worker) start() {
 
 //停止挖矿.
 func (self *worker) stop() {
-	self.wg.Wait()
+	self.wg.Wait()	//阻塞执行,知道waitgroup中的计数变为0.
 
 	self.mu.Lock()	//worker对象互斥锁加锁.
 	defer self.mu.Unlock()	//在函数退出的时候解锁.
@@ -548,6 +548,9 @@ func (self *worker) commitNewWork() {
 		self.unconfirmed.Shift(work.Block.NumberU64() - 1)	//当前区块的Number减去1就是其parent区块的Number号。
 	}
 	self.push(work)	//把组装好的Work对象交给agent来处理.
+	//在执行self.engine.Finalize()之前,所有交易都已经被执行完毕,所有receipts都已经收到了,在Finalize()函数中已经更新了header.root,也就是说块的状态已经定下来了.
+	//self.push(work)只是填充一下不需要修改header的内容,然后让各个节点去共识.
+	//在self.push(work)之前Finalize()的时候block header中的txHash, receiptHash和root就已经确定了.
 }
 
 func (self *worker) commitUncle(work *Work, uncle *types.Header) error {

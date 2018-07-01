@@ -247,7 +247,7 @@ func (g *Genesis) ToBlock() (*types.Block, *state.StateDB) {
 		}
 	}
 	//根据当前状态树状态生成一个中间root hash.
-	root := statedb.IntermediateRoot(false)
+	root := statedb.IntermediateRoot(false)	//根据当前的statedb重新生成一个root.
 	head := &types.Header{	//生成块头.
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),

@@ -70,19 +70,19 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 //区块头结构体.
 type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`		//当前区块的父区块.
-	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`		//当前区块的uncle区块.
+	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`		//当前区块的uncle区块,uncle区块是没有在主链上的块.
 	Coinbase    common.Address `json:"miner"            gencodec:"required"`		//挖出此区块的账号.
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`		//状态树.
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`		//交易树.
 	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`		//回执树.
-	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
-	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`
+	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`		//布隆过滤器.
+	Difficulty  *big.Int       `json:"difficulty"       gencodec:"required"`		//区块难度.
 	Number      *big.Int       `json:"number"           gencodec:"required"`		//当前区块的Number是其parent区块的值+1
 	GasLimit    *big.Int       `json:"gasLimit"         gencodec:"required"`		//当前区块的gasLimit(需要根据parent block计算得出)
-	GasUsed     *big.Int       `json:"gasUsed"          gencodec:"required"`
+	GasUsed     *big.Int       `json:"gasUsed"          gencodec:"required"`		//当前区块使用了多少gas.
 	Time        *big.Int       `json:"timestamp"        gencodec:"required"`		//区块产生的时间戳.
 	Extra       []byte         `json:"extraData"        gencodec:"required"`		//区块的extraData数据.
-	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`
+	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`		//共识算法标志,在ibft中,这个值必须填写共识要求的特定值,否则共识失败.
 	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`		//区块的nonce值.
 }
 
