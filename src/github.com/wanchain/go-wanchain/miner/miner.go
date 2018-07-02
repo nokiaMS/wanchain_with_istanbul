@@ -138,7 +138,7 @@ func (self *Miner) Stop() {
 
 //注册挖矿代理, agent:要注册的挖矿代理对象.
 func (self *Miner) Register(agent Agent) {
-	if self.Mining() {
+	if self.Mining() {	//没有挖矿的时候不会执行agent start.挖矿后如果走到此处才会执行agent start.
 		agent.Start()	//开始挖矿.
 	}
 	self.worker.register(agent)		//注册agent到worker中.

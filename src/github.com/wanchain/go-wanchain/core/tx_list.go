@@ -494,7 +494,7 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 // Underpriced checks whether a transaction is cheaper than (or as cheap as) the
 // lowest priced transaction currently being tracked.
 // 对本地交易一律返回false.
-// 对非本地交易,如果交易的price小于或者等于交易池的中交易的最小gasprice,则返回true; 否则返回false.
+// 对非本地交易,如果交易的price小于或者等于交易池中的交易的最小gasprice,则返回true; 否则返回false.
 func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) bool {
 	// Local transactions cannot be underpriced
 	if local.containsTx(tx) {

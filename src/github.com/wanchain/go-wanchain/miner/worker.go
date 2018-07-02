@@ -51,14 +51,15 @@ const (
 	chainSideChanSize = 10	//chainSide事件通道的buffer大小.
 )
 
+//Agent是一个挖矿代理,运行在worker与共识引擎之间.
+//worker通过调用agent的函数来间接调用共识引擎.
 // Agent can register themself with the worker
-//一个worker中可以注册多个agent.
 type Agent interface {
-	Work() chan<- *Work		//返回一个只写通道,用于worker把组装好的Work对象传递给agent.
-	SetReturnCh(chan<- *Result)	//设置结果返回通道.
+	Work() chan<- *Work		//返回一个只写通道,用于worker把组装好的Work对象传递给agent.(一个work对象可以理解为agent工作的上下文环境.)
+	SetReturnCh(chan<- *Result)	//设置结果返回通道.挖矿后形成的区块会通过这个通道返回给worker.
 	Stop()		//停止agent.
 	Start()		//启动agent.
-	GetHashRate() int64
+	GetHashRate() int64 //获得哈希率.此函数只在使用pow算法的时候才真正其作用,其余的共识算法中此函数直接返回0.
 }
 
 // Work is the workers current environment and holds

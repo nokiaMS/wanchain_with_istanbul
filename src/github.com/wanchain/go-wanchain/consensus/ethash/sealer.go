@@ -34,6 +34,7 @@ import (
 
 // Seal implements consensus.Engine, attempting to find a nonce that satisfies
 // the block's difficulty requirements.
+// ethash算法Seal方法.
 func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop <-chan struct{}) (*types.Block, error) {
 	header := block.Header()
 	// permission signer signing the header
@@ -106,6 +107,7 @@ func (ethash *Ethash) Seal(chain consensus.ChainReader, block *types.Block, stop
 
 // mine is the actual proof-of-work miner that searches for a nonce starting from
 // seed that results in correct final block difficulty.
+// pow共识算法中从seed中寻找nonce的具体函数.
 func (ethash *Ethash) mine(block *types.Block, id int, seed uint64, abort chan struct{}, found chan *types.Block) {
 	// Extract some data from the header
 	var (

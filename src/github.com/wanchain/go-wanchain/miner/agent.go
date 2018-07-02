@@ -25,9 +25,9 @@ import (
 	"github.com/wanchain/go-wanchain/log"
 )
 
-//cpu代理。
+//CpuAgent继承了Agent接口.
 type CpuAgent struct {
-	mu sync.Mutex	//cpu agent对象锁.
+	mu sync.Mutex	//cpu agent对象的互斥锁.
 
 	workCh        chan *Work		//workCH,一个Work代表一个当前的挖矿环境,worker向这个通道放入一个Work对象,cpuAgent基于这个Work对象进行挖矿.
 	stop          chan struct{}	//channel,接收stop消息.
@@ -62,29 +62,30 @@ func (self *CpuAgent) Stop() {
 	if !atomic.CompareAndSwapInt32(&self.isMining, 1, 0) {
 		return // agent already stopped
 	}
-	self.stop <- struct{}{}		//像stop channel发送消息。
+	self.stop <- struct{}{}		//向stop channel发送消息。
 done:
 	// Empty work channel	//清空work channel.已经缓存在work channel中的Work对象并不被处理,直接丢弃.
 	for {
 		select {
-		case <-self.workCh:
+		case <-self.workCh: //如果workCh中有消息的话,那么只是读取,并不做后续处理.
 		default:
 			break done	//break <label>的意思是跳出for循环到<label处，但是跳出后就不再再次执行for循环了。>
 		}
 	}
 }
 
-//启动挖矿.
+//启动cpu代理.
 func (self *CpuAgent) Start() {
 	//如果没有启动挖矿，那么启动；如果已经启动了，那么不再再次启动。
 	if !atomic.CompareAndSwapInt32(&self.isMining, 0, 1) {
 		return // agent already started
 	}
-	//启动事件监控。
+	//启动一个单独协程监控agent的事件。
 	go self.update()
 }
 
-//监控Work对象到达消息及stop消息并处理.
+//监控两个通道,一个是workCh通道,worker对象会把work从这个通道发送给agent.
+//另外一个通道是stop通道,停止消息会发送到这个通道中.
 func (self *CpuAgent) update() {
 out:
 	for {
@@ -111,7 +112,7 @@ out:
 
 //mine() cpu agent开始挖矿.
 //work: 工作上下文;
-//stop: 如果挖矿出问题,那么向stop通道中发消息,
+//stop是一个只读通道.
 func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	//调用engine的Seal方法开始挖矿.
 	if result, err := self.engine.Seal(self.chain, work.Block, stop); result != nil {	//调用consensus engine接口挖掘新的区块.
@@ -125,7 +126,9 @@ func (self *CpuAgent) mine(work *Work, stop <-chan struct{}) {
 	}
 }
 
+//返回哈希率.
 func (self *CpuAgent) GetHashRate() int64 {
+	//如果共识引擎采用的是pow,那么返回pow的哈希率,其他引擎一律返回0.
 	if pow, ok := self.engine.(consensus.PoW); ok {
 		return int64(pow.Hashrate())
 	}

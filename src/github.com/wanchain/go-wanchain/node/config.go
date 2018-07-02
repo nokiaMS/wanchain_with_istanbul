@@ -50,6 +50,7 @@ type Config struct {
 	// Name sets the instance name of the node. It must not contain the / character and is
 	// used in the devp2p node identifier. The instance name of geth is "geth". If no
 	// value is specified, the basename of the current executable is used.
+	//设置节点的实例名,如果没有指定节点实例名,那么当前执行程序的名字会作为默认值.
 	Name string `toml:"-"`
 
 	// UserIdent, if set, is used as an additional component in the devp2p node identifier.
@@ -64,6 +65,7 @@ type Config struct {
 	// registered services, instead those can use utility methods to create/access
 	// databases or flat files. This enables ephemeral nodes which can fully reside
 	// in memory.
+	//node的数据路径.
 	DataDir string	//如果DataDir为空,那么会创建一个内存数据库,如果DataDir不为空那么会创建一个level db的硬盘数据库.
 
 	// Configuration of peer-to-peer networking.
@@ -227,6 +229,7 @@ func (c *Config) NodeName() string {
 	return name
 }
 
+//返回节点的实例名称,如果配置了,那么返回配置文件中的名字,如果没有配置,那么用当前可执行文件的名字代替.
 func (c *Config) name() string {
 	if c.Name == "" {
 		progname := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
@@ -273,8 +276,9 @@ func (c *Config) resolvePath(path string) string {
 	return filepath.Join(c.instanceDir(), path)
 }
 
+//返回节点的数据库路径.
 func (c *Config) instanceDir() string {
-	if c.DataDir == "" {
+	if c.DataDir == "" {	//如果数据文件夹为空,那么返回空.
 		return ""
 	}
 	return filepath.Join(c.DataDir, c.name())

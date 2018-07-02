@@ -40,8 +40,9 @@ type ServiceContext struct {
 // OpenDatabase opens an existing database with the given name (or creates one
 // if no previous can be found) from within the node's data directory. If the
 // node is an ephemeral one, a memory database is returned.
+//打开名字为name的数据库,如果不存在则创建.
 func (ctx *ServiceContext) OpenDatabase(name string, cache int, handles int) (ethdb.Database, error) {
-	if ctx.config.DataDir == "" {
+	if ctx.config.DataDir == "" {	//如果数据文件夹配置为空,说明是一个临时节点,那么就创建内存数据库.
 		return ethdb.NewMemDatabase()
 	}
 	db, err := ethdb.NewLDBDatabase(ctx.config.resolvePath(name), cache, handles)
