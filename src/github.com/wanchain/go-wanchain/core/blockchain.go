@@ -542,15 +542,15 @@ func (bc *BlockChain) HasBlockAndState(hash common.Hash) bool {
 // caching it if found.
 func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	// Short circuit if the block's already in the cache, retrieve otherwise
-	if block, ok := bc.blockCache.Get(hash); ok {
+	if block, ok := bc.blockCache.Get(hash); ok {	//如果在cache中存在了要查找的block,那么直接返回.
 		return block.(*types.Block)
 	}
-	block := GetBlock(bc.chainDb, hash, number)
-	if block == nil {
+	block := GetBlock(bc.chainDb, hash, number)	//否则从数据库中查找块.
+	if block == nil {	//没找到则返回空.
 		return nil
 	}
 	// Cache the found block for next time and return
-	bc.blockCache.Add(block.Hash(), block)
+	bc.blockCache.Add(block.Hash(), block)	//找到了块之后把块加入到cache中以备以后查找.
 	return block
 }
 

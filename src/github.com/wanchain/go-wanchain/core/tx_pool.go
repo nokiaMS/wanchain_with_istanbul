@@ -110,35 +110,38 @@ var (
 
 // blockChain provides the state of blockchain and current gas limit to do
 // some pre checks in tx pool and event subscribers.
+// 检测及访问区块链的接口.
 type blockChain interface {
-	CurrentBlock() *types.Block
-	GetBlock(hash common.Hash, number uint64) *types.Block
+	CurrentBlock() *types.Block		//获得当前链头块.
+	GetBlock(hash common.Hash, number uint64) *types.Block	//根据hash和number获得一个块.之所以要传递hash和number是以为hash和number一起才能组成块在数据库中的Key,少了一个的话没有办法组成key.
 	StateAt(root common.Hash) (*state.StateDB, error)
 
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
 
 // TxPoolConfig are the configuration parameters of the transaction pool.
+//交易池配置参数.
 type TxPoolConfig struct {
-	NoLocals  bool          // Whether local transaction handling should be disabled
-	Journal   string        // Journal of local transactions to survive node restarts
-	Rejournal time.Duration // Time interval to regenerate the local transaction journal
+	NoLocals  bool          // Whether local transaction handling should be disabled 是否对本地交易采用价格检查.
+	Journal   string        // Journal of local transactions to survive node restarts journal文件的名称.
+	Rejournal time.Duration // Time interval to regenerate the local transaction journal  journal文件生成周期.
 
-	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool
+	PriceLimit uint64 // Minimum gas price to enforce for acceptance into the pool		txpool的价格限制.
 	PriceBump  uint64 // Minimum price bump percentage to replace an already existing transaction (nonce)
 
-	AccountSlots uint64 // Minimum number of executable transaction slots guaranteed per account
-	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts
-	AccountQueue uint64 // Maximum number of non-executable transaction slots permitted per account
-	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts
+	AccountSlots uint64 // Minimum number of executable transaction slots guaranteed per account	给每个账户提供的可执行交易槽位.
+	GlobalSlots  uint64 // Maximum number of executable transaction slots for all accounts	所有账户的可执行交易的操作.
+	AccountQueue uint64 // Maximum number of non-executable transaction slots permitted per account	给每个账户提供的不可执行交易的操作.
+	GlobalQueue  uint64 // Maximum number of non-executable transaction slots for all accounts	所有账户的可执行交易的操作.
 
-	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
+	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued	不可执行交易被缓存的最大时间.
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
 // pool.
+// 交易池的默认配置.
 var DefaultTxPoolConfig = TxPoolConfig{
-	Journal:   "transactions.rlp",
+	Journal:   "transactions.rlp",	//journal文件默认名字是
 	Rejournal: time.Hour,
 
 	PriceLimit: 1,

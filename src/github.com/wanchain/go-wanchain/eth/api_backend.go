@@ -182,9 +182,9 @@ func (b *EthApiBackend) ProtocolVersion() int {
 	return b.eth.EthVersion()
 }
 
-//获得建议price值。
+//计算交易建议price。
 func (b *EthApiBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
-	return b.gpo.SuggestPrice(ctx)
+	return b.gpo.SuggestPrice(ctx)	//计算交易的建议价格.
 }
 
 func (b *EthApiBackend) ChainDb() ethdb.Database {

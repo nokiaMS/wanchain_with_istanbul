@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	defaultGas = 90000
+	defaultGas = 90000		//交易的默认gas,为90000
 )
 
 var (
@@ -1302,7 +1302,7 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		args.Gas = (*hexutil.Big)(big.NewInt(defaultGas))	//设置nonce值为默认值。
 	}
 	if args.GasPrice == nil {	//设置gasprice.
-		price, err := b.SuggestPrice(ctx)
+		price, err := b.SuggestPrice(ctx)	//计算推荐的交易price.
 		if err != nil {
 			return err
 		}
