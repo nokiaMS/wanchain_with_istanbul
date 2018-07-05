@@ -159,7 +159,7 @@ func initGenesis(ctx *cli.Context) error {
 	defer file.Close()
 
 	genesis := new(core.Genesis)	//创建genesis对象.
-	if err := json.NewDecoder(file).Decode(genesis); err != nil {	//把genesis.json文件中的内容解析到genesis对象中.
+	if err := json.NewDecoder(file).Decode(genesis); err != nil {	//把genesis.json文件中的内容解析到genesis对象中. uint64的最大值的十进制形式为 18446744073709551615.
 		utils.Fatalf("invalid genesis file: %v", err)
 	}
 	// Open an initialise both full and light databases

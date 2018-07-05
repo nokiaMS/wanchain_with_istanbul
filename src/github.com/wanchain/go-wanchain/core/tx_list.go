@@ -516,7 +516,7 @@ func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) boo
 		return false
 	}
 	cheapest := []*types.Transaction(*l.items)[0]	//返回最便宜的交易.
-	return cheapest.GasPrice().Cmp(tx.GasPrice()) >= 0		//判断当前交易和目前在txpool中的最偏的交易的gasprice哪个大,如果当前交易的price小,那么返回true.
+	return cheapest.GasPrice().Cmp(tx.GasPrice()) >= 0		//判断当前交易和目前在txpool中的最便宜的交易的gasprice哪个大,如果当前交易的price小,那么返回true.
 }
 
 // Discard finds a number of most underpriced transactions, removes them from the
