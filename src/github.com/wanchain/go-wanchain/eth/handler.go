@@ -123,6 +123,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 
 	// Figure out whether to allow fast sync or not
+	// 什么时候fastsync模式才生效?
+	//     只有在用户配置了fastsync模式并且node当前的链上只有创世块的时候fastsync才生效,
+	//     如果当前链上已经有块了,那么即使用户配置了fastsync模式,在代码中也会强制转换成fullsync模式.
 	if mode == downloader.FastSync && blockchain.CurrentBlock().NumberU64() > 0 {
 		log.Warn("Blockchain not empty, fast sync disabled")
 		mode = downloader.FullSync
@@ -180,6 +183,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	inserter := func(blocks types.Blocks) (int, error) {
 		// If fast sync is running, deny importing weird blocks
+		//如果当前的模式是fastsync模式,那么对于其他Node广播过来的块直接丢弃,不允许插入到链上.(在ibft第一次启动挖矿的时候日志中会打印这个问题.)
 		if atomic.LoadUint32(&manager.fastSync) == 1 {
 			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
