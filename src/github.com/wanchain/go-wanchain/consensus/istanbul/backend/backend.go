@@ -55,7 +55,7 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		address:          crypto.PubkeyToAddress(privateKey.PublicKey),
 		logger:           log.New(),
 		db:               db,
-		commitCh:         make(chan *types.Block, 1),	//cimmitCh是一个异步channel,带有一个元素缓存。
+		commitCh:         make(chan *types.Block, 1),	//cimmitCh是一个异步channel,带有一个元素缓存。此处创建的commitCh在Start()函数中被关闭重新创建了。
 		recents:          recents,
 		candidates:       make(map[common.Address]bool),
 		coreStarted:      false,
@@ -296,7 +296,7 @@ func (sb *backend) LastProposal() (istanbul.Proposal, common.Address) {
 	var proposer common.Address
 	if block.Number().Cmp(common.Big0) > 0 {
 		var err error
-		proposer, err = sb.Author(block.Header())
+		proposer, err = sb.Author(block.Header())	//ibft中对块签名的人就是出这个块的proposer。
 		if err != nil {
 			sb.logger.Error("Failed to get block proposer", "err", err)
 			return nil, common.Address{}

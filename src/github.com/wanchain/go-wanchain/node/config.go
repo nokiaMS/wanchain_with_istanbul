@@ -336,6 +336,7 @@ func (c *Config) TrustedNodes() []*discover.Node {
 
 // parsePersistentNodes parses a list of discovery node URLs loaded from a .json
 // file from within the data directory.
+//转换静态节点列表。
 func (c *Config) parsePersistentNodes(path string) []*discover.Node {
 	// Short circuit if no node config is present
 	if c.DataDir == "" {
@@ -345,6 +346,7 @@ func (c *Config) parsePersistentNodes(path string) []*discover.Node {
 		return nil
 	}
 	// Load the nodes from the config file.
+	//从文件中加载静态节点列表。
 	var nodelist []string
 	if err := common.LoadJSON(path, &nodelist); err != nil {
 		log.Error(fmt.Sprintf("Can't load node file %s: %v", path, err))
@@ -356,14 +358,14 @@ func (c *Config) parsePersistentNodes(path string) []*discover.Node {
 		if url == "" {
 			continue
 		}
-		node, err := discover.ParseNode(url)
+		node, err := discover.ParseNode(url)	//从enode中转化Node数据结构。
 		if err != nil {
 			log.Error(fmt.Sprintf("Node URL %s: %v\n", url, err))
 			continue
 		}
-		nodes = append(nodes, node)
+		nodes = append(nodes, node)	//把生成结果追加到nodes节点列表中。
 	}
-	return nodes
+	return nodes //返回nodes节点列表。
 }
 
 //构造account manager.

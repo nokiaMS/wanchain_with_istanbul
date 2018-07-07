@@ -79,6 +79,8 @@ type ProtocolManager struct {
 	downloader *downloader.Downloader  //(被动获取)负责所有向相邻个体主动发起的同步流程。
 	fetcher    *fetcher.Fetcher  //(主动获取)负责累积所有其他个体(有可能是peer，也有可能节点内的其他模块)发送来的有关新数据的宣布消息，并在自身对照后，安排相应的获取请求。
 	peers      *peerSet		//peers列表。
+	                        //在以太坊网络中，所有进行通信的两个peer都必须率先经过相互注册，并被添加到各自的缓存peer列表中，也就是peerset{}对象中。
+	                        //这样的两个peer，可以称之为相邻。所以，远端个体，如果处于可通信状态，那么必定是相邻的。
 
 	SubProtocols []p2p.Protocol
 
@@ -231,6 +233,7 @@ func (pm *ProtocolManager) Start(maxPeers int) {
 	// start sync handlers
 	go pm.syncer()  //定时与相邻个体进行区块全链的强制同步。
 	                // syncer()首先启动fetcher成员，然后进入一个无限循环，每次循环中都会向相邻peer列表中“最优”的那个peer作一次区块全链同步。
+	                //所谓最优就是peer中维护的区块链的total difficulty最高。
 	go pm.txsyncLoop()  //将新出现的交易对象均匀的同步给相邻个体。
 }
 
@@ -265,6 +268,7 @@ func (pm *ProtocolManager) newPeer(pv int, p *p2p.Peer, rw p2p.MsgReadWriter) *p
 
 // handle is the callback invoked to manage the life cycle of an eth peer. When
 // this function terminates, the peer is disconnected.
+//供peer调用的函数。
 func (pm *ProtocolManager) handle(p *peer) error {
 	if pm.peers.Len() >= pm.maxPeers {
 		return p2p.DiscTooManyPeers

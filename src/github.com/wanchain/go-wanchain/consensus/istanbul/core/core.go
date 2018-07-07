@@ -247,7 +247,7 @@ func (c *core) startNewRound(round *big.Int) {
 	c.valSet.CalcProposer(lastProposer, newView.Round.Uint64())
 	c.waitingForRoundChange = false
 	c.setState(StateAcceptRequest)	//设置istanbul consensus状态为初始状态.
-	if roundChange && c.isProposer() && c.current != nil {
+	if roundChange && c.isProposer() && c.current != nil {	//如果是proposer，那么发送preprepare消息。
 		// If it is locked, propose the old proposal
 		// If we have pending request, propose pending request
 		if c.current.IsHashLocked() {

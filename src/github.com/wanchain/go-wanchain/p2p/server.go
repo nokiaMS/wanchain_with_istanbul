@@ -364,6 +364,7 @@ func (srv *Server) Start() (err error) {
 	log.Info("Starting P2P networking")
 
 	// static fields
+	// p2p server的私钥不能为空。
 	if srv.PrivateKey == nil {
 		return fmt.Errorf("Server.PrivateKey must be set to a non-nil key")
 	}
@@ -371,10 +372,10 @@ func (srv *Server) Start() (err error) {
 		srv.newTransport = newRLPX
 	}
 	if srv.Dialer == nil {
-		srv.Dialer = TCPDialer{&net.Dialer{Timeout: defaultDialTimeout}}
+		srv.Dialer = TCPDialer{&net.Dialer{Timeout: defaultDialTimeout}} //创建tcp dialer.
 	}
-	srv.quit = make(chan struct{})
-	srv.addpeer = make(chan *conn)
+	srv.quit = make(chan struct{})	//接收quit消息。
+	srv.addpeer = make(chan *conn)  //接收addpeer消息。
 	srv.delpeer = make(chan peerDrop)
 	srv.posthandshake = make(chan *conn)
 	srv.addstatic = make(chan *discover.Node)
