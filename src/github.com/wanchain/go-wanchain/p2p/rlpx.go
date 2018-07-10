@@ -76,6 +76,7 @@ var errPlainMessageTooLarge = errors.New("message length >= 16MB")
 
 // rlpx is the transport protocol used by actual (non-test) connections.
 // It wraps the frame encoder with locks and read/write deadlines.
+//以太坊中使用的链接协议,运行在p2p上层.
 type rlpx struct {
 	fd net.Conn
 
@@ -119,13 +120,14 @@ func (t *rlpx) close(err error) {
 // messages. the protocol handshake is the first authenticated message
 // and also verifies whether the encryption handshake 'worked' and the
 // remote side actually provided the right public key.
+//协议握手.
 func (t *rlpx) doProtoHandshake(our *protoHandshake) (their *protoHandshake, err error) {
 	// Writing our handshake happens concurrently, we prefer
 	// returning the handshake read error. If the remote side
 	// disconnects us early with a valid reason, we should return it
 	// as the error so it can be tracked elsewhere.
 	werr := make(chan error, 1)
-	go func() { werr <- Send(t.rw, handshakeMsg, our) }()
+	go func() { werr <- Send(t.rw, handshakeMsg, our) }()	//启动协程并发送一个握手消息.
 	if their, err = readProtocolHandshake(t.rw, our); err != nil {
 		<-werr // make sure the write terminates too
 		return nil, err
@@ -169,14 +171,15 @@ func readProtocolHandshake(rw MsgReader, our *protoHandshake) (*protoHandshake, 
 	return &hs, nil
 }
 
+//加密握手.
 func (t *rlpx) doEncHandshake(prv *ecdsa.PrivateKey, dial *discover.Node) (discover.NodeID, error) {
 	var (
 		sec secrets
 		err error
 	)
-	if dial == nil {
+	if dial == nil {	//dialDest为空,表示此node为握手协议接收端.
 		sec, err = receiverEncHandshake(t.fd, prv, nil)
-	} else {
+	} else {	//dialDest不为空,表示此node为握手协议发起端.
 		sec, err = initiatorEncHandshake(t.fd, prv, dial.ID, nil)
 	}
 	if err != nil {

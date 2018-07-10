@@ -77,6 +77,7 @@ func (n *Node) addr() *net.UDPAddr {
 }
 
 // Incomplete returns true for nodes with no IP address.
+//如果node没有ip地址则返回true.
 func (n *Node) Incomplete() bool {
 	return n.IP == nil
 }
@@ -141,6 +142,8 @@ var incompleteNodeURL = regexp.MustCompile("(?i)^(?:enode://)?([0-9a-f]+)$")
 // and UDP discovery port 30301.
 //
 //    enode://<hex node id>@10.3.58.6:17717?discport=30301
+//    enode的格式如下: <16进制的节点id>@<节点ip地址>:<TCP端口地址>?discport=<UDP节点发现端口地址>
+//    把enode转换为Node结构.
 func ParseNode(rawurl string) (*Node, error) {
 	if m := incompleteNodeURL.FindStringSubmatch(rawurl); m != nil {
 		id, err := HexID(m[1])

@@ -82,7 +82,7 @@ type ProtocolManager struct {
 	                        //在以太坊网络中，所有进行通信的两个peer都必须率先经过相互注册，并被添加到各自的缓存peer列表中，也就是peerset{}对象中。
 	                        //这样的两个peer，可以称之为相邻。所以，远端个体，如果处于可通信状态，那么必定是相邻的。
 
-	SubProtocols []p2p.Protocol
+	SubProtocols []p2p.Protocol		//当前Node支持的所有协议.
 
 	eventMux      *event.TypeMux
 	txCh          chan core.TxPreEvent	//交易通知接收通道，异步，buffer为4096
@@ -134,10 +134,10 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	}
 	if mode == downloader.FastSync {
 		manager.fastSync = uint32(1)
-}
-	protocol := engine.Protocol()
+	}
+	protocol := engine.Protocol()	//获得共识协议.
 	// Initiate a sub-protocol for every implemented version we can handle
-	manager.SubProtocols = make([]p2p.Protocol, 0, len(protocol.Versions))
+	manager.SubProtocols = make([]p2p.Protocol, 0, len(protocol.Versions))	//初始化SubProtocols字段.
 	for i, version := range protocol.Versions {
 		// Skip protocol version if incompatible with the mode of operation
 		if mode == downloader.FastSync && version < eth63 {
@@ -145,7 +145,8 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		}
 		// Compatible; initialise the sub-protocol
 		version := version // Closure for the run
-		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{
+		//此处把共识算法自协议添加到了SubProtocols中.
+		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{	//构造p2p子协议并填充到SubProtocols中.
 			Name:    protocol.Name,
 			Version: version,
 			Length:  protocol.Lengths[i],
@@ -175,6 +176,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		return nil, errIncompatibleConfig
 	}
 	// Construct the different synchronisation mechanisms
+	//构造downloader.
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 
 	validator := func(header *types.Header) error {
@@ -193,6 +195,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
 		return manager.blockchain.InsertChain(blocks)
 	}
+	//构造fetcher.
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
 
 	return manager, nil

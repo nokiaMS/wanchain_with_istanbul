@@ -41,14 +41,15 @@ const (
 	pingInterval = 15 * time.Second
 )
 
+//devp2p消息码.
 const (
 	// devp2p message codes
-	handshakeMsg = 0x00
-	discMsg      = 0x01
-	pingMsg      = 0x02
-	pongMsg      = 0x03
-	getPeersMsg  = 0x04
-	peersMsg     = 0x05
+	handshakeMsg = 0x00	//握手消息.
+	discMsg      = 0x01	//节点发现消息.
+	pingMsg      = 0x02	//ping消息.
+	pongMsg      = 0x03	//pong消息.
+	getPeersMsg  = 0x04	//获得peers消息.
+	peersMsg     = 0x05	//peers消息.
 )
 
 // protoHandshake is the RLP structure of the protocol handshake.
@@ -160,6 +161,7 @@ func (p *Peer) String() string {
 	return fmt.Sprintf("Peer %x %v", p.rw.id[:8], p.RemoteAddr())
 }
 
+//构造一个新的peer对象.
 func newPeer(conn *conn, protocols []Protocol) *Peer {
 	protomap := matchProtocols(protocols, conn.caps, conn)
 	p := &Peer{
@@ -178,6 +180,7 @@ func (p *Peer) Log() log.Logger {
 	return p.log
 }
 
+//peer运行.
 func (p *Peer) run() (remoteRequested bool, err error) {
 	var (
 		writeStart = make(chan struct{}, 1)
@@ -186,8 +189,8 @@ func (p *Peer) run() (remoteRequested bool, err error) {
 		reason     DiscReason // sent to the peer
 	)
 	p.wg.Add(2)
-	go p.readLoop(readErr)
-	go p.pingLoop()
+	go p.readLoop(readErr)	//读取消息并处理.
+	go p.pingLoop()		//定时发送ping消息.
 
 	// Start all protocol handlers.
 	writeStart <- struct{}{}
@@ -227,14 +230,15 @@ loop:
 	return remoteRequested, err
 }
 
+//定时发送ping消息.
 func (p *Peer) pingLoop() {
 	ping := time.NewTimer(pingInterval)
 	defer p.wg.Done()
 	defer ping.Stop()
 	for {
 		select {
-		case <-ping.C:
-			if err := SendItems(p.rw, pingMsg); err != nil {
+		case <-ping.C:	//timer到期的话此通道会有数据.
+			if err := SendItems(p.rw, pingMsg); err != nil {	//发送ping消息.
 				p.protoErr <- err
 				return
 			}
@@ -245,27 +249,29 @@ func (p *Peer) pingLoop() {
 	}
 }
 
+//读取消息的循环.
 func (p *Peer) readLoop(errc chan<- error) {
 	defer p.wg.Done()
 	for {
-		msg, err := p.rw.ReadMsg()
+		msg, err := p.rw.ReadMsg()	//读取subprotocol消息.
 		if err != nil {
 			errc <- err
 			return
 		}
 		msg.ReceivedAt = time.Now()
-		if err = p.handle(msg); err != nil {
+		if err = p.handle(msg); err != nil {	//处理读取到的消息.
 			errc <- err
 			return
 		}
 	}
 }
 
+//处理读取到的消息.
 func (p *Peer) handle(msg Msg) error {
 	switch {
-	case msg.Code == pingMsg:
+	case msg.Code == pingMsg:	//处理ping消息.
 		msg.Discard()
-		go SendItems(p.rw, pongMsg)
+		go SendItems(p.rw, pongMsg)	//发送pong消息.
 	case msg.Code == discMsg:
 		var reason [1]DiscReason
 		// This is the last message. We don't need to discard or
@@ -328,6 +334,7 @@ outer:
 	return result
 }
 
+//运行protocol.(ibft protocol.)
 func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error) {
 	p.wg.Add(len(p.running))
 	for _, proto := range p.running {
@@ -341,7 +348,7 @@ func (p *Peer) startProtocols(writeStart <-chan struct{}, writeErr chan<- error)
 		}
 		p.log.Trace(fmt.Sprintf("Starting protocol %s/%d", proto.Name, proto.Version))
 		go func() {
-			err := proto.Run(p, rw)
+			err := proto.Run(p, rw)		//在NewProtocolManager创建的时候就给subProtocols中的protocols的Run字段赋值了,要去NewProtocolManager()中去查找匿名函数.
 			if err == nil {
 				p.log.Trace(fmt.Sprintf("Protocol %s/%d returned", proto.Name, proto.Version))
 				err = errProtocolReturned

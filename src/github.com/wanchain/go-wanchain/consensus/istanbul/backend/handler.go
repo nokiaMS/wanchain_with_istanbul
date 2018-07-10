@@ -36,11 +36,13 @@ var (
 )
 
 // Protocol implements consensus.Engine.Protocol
+//返回共识引擎的协议版本.
+//ibft有自己的协议标识,而ethash和clique协议标识相同,都是eth.
 func (sb *backend) Protocol() consensus.Protocol {
 	return consensus.Protocol{
-		Name:     "istanbul",
-		Versions: []uint{64},
-		Lengths:  []uint64{18},
+		Name:     "istanbul",	//ibft共识协议名称.
+		Versions: []uint{64},	//ibft共识协议版本.
+		Lengths:  []uint64{18},	//ibft共识协议消息编号.
 	}
 }
 

@@ -95,7 +95,7 @@ type Engine interface {
 	APIs(chain ChainReader) []rpc.API
 
 	// Protocol returns the protocol for this consensus
-	Protocol() Protocol
+	Protocol() Protocol	//返回共识算法支持的协议.
 }
 
 // Handler should be implemented is the consensus needs to handle and send peer's message

@@ -25,26 +25,28 @@ import (
 
 // Constants to match up protocol versions and messages
 const (
-	Eth62 = 62
-	Eth63 = 63
+	Eth62 = 62	//以太坊协议版本.
+	Eth63 = 63 //以太坊协议版本.
 )
 
 var (
+	//以太坊协议定义. 不同的共识算法有不同的协议标识,此处的EthProtocol协议标识是给ethash算法那和clique算法使用的.
+	//ibft算法有自己的协议标识.(全工程搜索EthProtocol会发现ethash和clique使用此处的EthProtocol作为共识协议标识.)
 	EthProtocol = Protocol{
-		Name:     "eth",
-		Versions: []uint{Eth62, Eth63},
-		Lengths:  []uint64{17, 8},
+		Name:     "eth",	//协议名称.
+		Versions: []uint{Eth62, Eth63},	//协议版本.
+		Lengths:  []uint64{17, 8},	//不同的协议版本对应的消息编号.
 	}
 )
 
 // Protocol defines the protocol of the consensus
 type Protocol struct {		//定义了consensus的协议.
 	// Official short name of the protocol used during capability negotiation.
-	Name string
+	Name string		//协议名称.
 	// Supported versions of the eth protocol (first is primary).
-	Versions []uint
+	Versions []uint		//协议版本.
 	// Number of implemented message corresponding to different protocol versions.
-	Lengths []uint64
+	Lengths []uint64	//消息编号.
 }
 
 // Broadcaster defines the interface to enqueue blocks to fetcher and find peer

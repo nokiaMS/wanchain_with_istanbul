@@ -414,9 +414,10 @@ func (s *Ethereum) Downloader() *downloader.Downloader { return s.protocolManage
 
 // Protocols implements node.Service, returning all the currently configured
 // network protocols to start.
+//返回当前node支持的所有协议.
 func (s *Ethereum) Protocols() []p2p.Protocol {
 	if s.lesServer == nil {
-		return s.protocolManager.SubProtocols
+		return s.protocolManager.SubProtocols	//当前Node支持的所有子协议.
 	}
 	return append(s.protocolManager.SubProtocols, s.lesServer.Protocols()...)
 }

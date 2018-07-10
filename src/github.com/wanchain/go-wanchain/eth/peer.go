@@ -50,6 +50,7 @@ type PeerInfo struct {
 	Head       string   `json:"head"`       // SHA3 hash of the peer's best owned block
 }
 
+//以太坊peer类型.
 type peer struct {
 	id string
 

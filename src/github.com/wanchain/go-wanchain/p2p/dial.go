@@ -49,20 +49,23 @@ const (
 
 // NodeDialer is used to connect to nodes in the network, typically by using
 // an underlying net.Dialer but also using net.Pipe in tests
+//节点拨号接口.
 type NodeDialer interface {
-	Dial(*discover.Node) (net.Conn, error)
+	Dial(*discover.Node) (net.Conn, error)	//拨号接口.
 }
 
 // TCPDialer implements the NodeDialer interface by using a net.Dialer to
 // create TCP connections to nodes in the network
+//实现了NodeDialer接口.
 type TCPDialer struct {
 	*net.Dialer
 }
 
 // Dial creates a TCP connection to the node
+//在节点之间创建一个tcp连接.
 func (t TCPDialer) Dial(dest *discover.Node) (net.Conn, error) {
-	addr := &net.TCPAddr{IP: dest.IP, Port: int(dest.TCP)}
-	return t.Dialer.Dial("tcp", addr.String())
+	addr := &net.TCPAddr{IP: dest.IP, Port: int(dest.TCP)}	//构造地址.
+	return t.Dialer.Dial("tcp", addr.String())	//返回一个tcp连接.
 }
 
 // dialstate schedules dials and discovery lookups.
@@ -77,11 +80,11 @@ type dialstate struct {
 	dialing       map[discover.NodeID]connFlag
 	lookupBuf     []*discover.Node // current discovery lookup results
 	randomNodes   []*discover.Node // filled from Table
-	static        map[discover.NodeID]*dialTask
+	static        map[discover.NodeID]*dialTask	//存储静态节点的拨号task.
 	hist          *dialHistory
 
-	start     time.Time        // time when the dialer was first used
-	bootnodes []*discover.Node // default dials when there are no peers
+	start     time.Time        // time when the dialer was first used	拨号开始时间.
+	bootnodes []*discover.Node // default dials when there are no peers	//没有peers时候的默认拨号节点.
 }
 
 type discoverTable interface {
@@ -101,15 +104,16 @@ type pastDial struct {
 	exp time.Time
 }
 
+//task接口.
 type task interface {
-	Do(*Server)
+	Do(*Server)	//执行task.
 }
 
 // A dialTask is generated for each node that is dialed. Its
 // fields cannot be accessed while the task is running.
 type dialTask struct {
 	flags        connFlag
-	dest         *discover.Node
+	dest         *discover.Node		//拨号的目的节点(要向哪个node拨号.)
 	lastResolved time.Time
 	resolveDelay time.Duration
 }
@@ -156,19 +160,29 @@ func (s *dialstate) removeStatic(n *discover.Node) {
 	delete(s.static, n.ID)
 }
 
+//创建新task列表.
+//    nRunning: 正在运行的task数.
+//    peers: 对端列表.(peers中存储的是已经建立了网络连接的节点,尚未建立连接的节点不会存储在peers中.)
+//    now: 时间戳.
+//    返回创建好的task列表.
 func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now time.Time) []task {
+	//设置拨号开始时间.
 	if s.start == (time.Time{}) {
 		s.start = now
 	}
 
+	//新创建task列表.
 	var newtasks []task
+
+	//匿名函数,添加拨号对象.
 	addDial := func(flag connFlag, n *discover.Node) bool {
+		//首先检测拨号是否符合规则,如果不符合规则则退出.
 		if err := s.checkDial(n, peers); err != nil {
 			log.Trace("Skipping dial candidate", "id", n.ID, "addr", &net.TCPAddr{IP: n.IP, Port: int(n.TCP)}, "err", err)
 			return false
 		}
-		s.dialing[n.ID] = flag
-		newtasks = append(newtasks, &dialTask{flags: flag, dest: n})
+		s.dialing[n.ID] = flag	//设置连接标志.
+		newtasks = append(newtasks, &dialTask{flags: flag, dest: n})	//把新的task添加到newtasks切片中.
 		return true
 	}
 
@@ -186,9 +200,11 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 	}
 
 	// Expire the dial history on every invocation.
+	//每次调用newTasks函数都让当前dialState的历史状态过期.
 	s.hist.expire(now)
 
 	// Create dials for static nodes if they are not connected.
+	//如果静态节点还没有连接,那么把静态节点添加到newtasks中.
 	for id, t := range s.static {
 		err := s.checkDial(t.dest, peers)
 		switch err {
@@ -204,10 +220,12 @@ func (s *dialstate) newTasks(nRunning int, peers map[discover.NodeID]*Peer, now 
 	// scenario is useful for the testnet (and private networks) where the discovery
 	// table might be full of mostly bad peers, making it hard to find good ones.
 	if len(peers) == 0 && len(s.bootnodes) > 0 && needDynDials > 0 && now.Sub(s.start) > fallbackInterval {
-		bootnode := s.bootnodes[0]
+		bootnode := s.bootnodes[0]	//选取第一个bootnode.
+		//把已经选中的bootnode移动到列表最后,方便下一次选择的时候直接从第一个bootnode选择.
 		s.bootnodes = append(s.bootnodes[:0], s.bootnodes[1:]...)
 		s.bootnodes = append(s.bootnodes, bootnode)
 
+		//添加bootnode到newTasks中.
 		if addDial(dynDialedConn, bootnode) {
 			needDynDials--
 		}
@@ -257,6 +275,7 @@ var (
 	errNotWhitelisted   = errors.New("not contained in netrestrict whitelist")
 )
 
+//检测拨号是否合法.
 func (s *dialstate) checkDial(n *discover.Node, peers map[discover.NodeID]*Peer) error {
 	_, dialing := s.dialing[n.ID]
 	switch {
@@ -285,13 +304,14 @@ func (s *dialstate) taskDone(t task, now time.Time) {
 	}
 }
 
+//拨号task.
 func (t *dialTask) Do(srv *Server) {
 	if t.dest.Incomplete() {
 		if !t.resolve(srv) {
 			return
 		}
 	}
-	success := t.dial(srv, t.dest)
+	success := t.dial(srv, t.dest)	//拨号.
 	// Try resolving the ID of static nodes if dialing failed.
 	if !success && t.flags&staticDialedConn != 0 {
 		if t.resolve(srv) {
@@ -335,14 +355,15 @@ func (t *dialTask) resolve(srv *Server) bool {
 }
 
 // dial performs the actual connection attempt.
+// dial执行实际的节点连接操作.
 func (t *dialTask) dial(srv *Server, dest *discover.Node) bool {
-	fd, err := srv.Dialer.Dial(dest)
+	fd, err := srv.Dialer.Dial(dest)	//建立实际的TCP连接.
 	if err != nil {
 		log.Trace("Dial error", "task", t, "err", err)
 		return false
 	}
 	mfd := newMeteredConn(fd, false)
-	srv.SetupConn(mfd, t.flags, dest)
+	srv.SetupConn(mfd, t.flags, dest)	//执行handshake.
 	return true
 }
 

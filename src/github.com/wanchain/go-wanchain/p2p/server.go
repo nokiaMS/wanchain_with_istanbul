@@ -44,7 +44,7 @@ const (
 	maxAcceptConns = 50
 
 	// Maximum number of concurrently dialing outbound connections.
-	maxActiveDialTasks = 16
+	maxActiveDialTasks = 16	//最大的活跃连接数.
 
 	// Maximum time allowed for reading a complete message.
 	// This is effectively the amount of time a connection can be idle.
@@ -155,8 +155,8 @@ type Server struct {
 	lock    sync.Mutex // protects running	//p2p server操作锁.
 	running bool	//p2p server是否正在运行的标志.
 
-	ntab         discoverTable
-	listener     net.Listener
+	ntab         discoverTable	//本地UDP端口监听端.
+	listener     net.Listener	//本地tcp端口监听端.
 	ourHandshake *protoHandshake
 	lastLookup   time.Time
 	DiscV5       *discv5.Network
@@ -185,11 +185,12 @@ type peerDrop struct {
 
 type connFlag int
 
+//connFlag
 const (
-	dynDialedConn connFlag = 1 << iota
-	staticDialedConn
-	inboundConn
-	trustedConn
+	dynDialedConn connFlag = 1 << iota	//动态连接.
+	staticDialedConn						//静态连接.
+	inboundConn							//引入连接(其他节点发起的到本节点的连接.)
+	trustedConn							//信任连接.
 )
 
 // conn wraps a network connection with information gathered
@@ -206,8 +207,9 @@ type conn struct {
 
 type transport interface {
 	// The two handshakes.
-	doEncHandshake(prv *ecdsa.PrivateKey, dialDest *discover.Node) (discover.NodeID, error)
-	doProtoHandshake(our *protoHandshake) (*protoHandshake, error)
+	//两个握手操作,一个是加密握手,一个是协议握手.
+	doEncHandshake(prv *ecdsa.PrivateKey, dialDest *discover.Node) (discover.NodeID, error)	//加密握手操作.
+	doProtoHandshake(our *protoHandshake) (*protoHandshake, error)								//协议握手操作.
 	// The MsgReadWriter can only be used after the encryption
 	// handshake has completed. The code uses conn.id to track this
 	// by setting it to a non-nil value after the encryption handshake.
@@ -384,8 +386,9 @@ func (srv *Server) Start() (err error) {
 	srv.peerOpDone = make(chan struct{})
 
 	// node table
+	//UDP协议用于节点发现,节点之间的实际连接采用TCP连接.
 	if !srv.NoDiscovery {
-		ntab, err := discover.ListenUDP(srv.PrivateKey, srv.ListenAddr, srv.NAT, srv.NodeDatabase, srv.NetRestrict)
+		ntab, err := discover.ListenUDP(srv.PrivateKey, srv.ListenAddr, srv.NAT, srv.NodeDatabase, srv.NetRestrict)	//监听UDP端口.
 		if err != nil {
 			return err
 		}
@@ -428,14 +431,15 @@ func (srv *Server) Start() (err error) {
 	}
 
 	srv.loopWG.Add(1)
-	go srv.run(dialer)
+	go srv.run(dialer)	//p2p server运行,主动连接peer.
 	srv.running = true
 	return nil
 }
 
+//启动tcp监听器,tcp端口号与udp端口号相同.
 func (srv *Server) startListening() error {
 	// Launch the TCP listener.
-	listener, err := net.Listen("tcp", srv.ListenAddr)
+	listener, err := net.Listen("tcp", srv.ListenAddr) 	//p2p中udp和tcp的监听端口号相同.
 	if err != nil {
 		return err
 	}
@@ -443,7 +447,7 @@ func (srv *Server) startListening() error {
 	srv.ListenAddr = laddr.String()
 	srv.listener = listener
 	srv.loopWG.Add(1)
-	go srv.listenLoop()
+	go srv.listenLoop()		//循环处理监听事件并接受连接.
 	// Map the TCP listening port if NAT is configured.
 	if !laddr.IP.IsLoopback() && srv.NAT != nil {
 		srv.loopWG.Add(1)
@@ -456,7 +460,7 @@ func (srv *Server) startListening() error {
 }
 
 type dialer interface {
-	newTasks(running int, peers map[discover.NodeID]*Peer, now time.Time) []task
+	newTasks(running int, peers map[discover.NodeID]*Peer, now time.Time) []task	//创建新tasks.
 	taskDone(task, time.Time)
 	addStatic(*discover.Node)
 	removeStatic(*discover.Node)
@@ -468,8 +472,8 @@ func (srv *Server) run(dialstate dialer) {
 		peers        = make(map[discover.NodeID]*Peer)
 		trusted      = make(map[discover.NodeID]bool, len(srv.TrustedNodes))
 		taskdone     = make(chan task, maxActiveDialTasks)
-		runningTasks []task
-		queuedTasks  []task // tasks that can't run yet
+		runningTasks []task		//存储正在运行的task.
+		queuedTasks  []task // tasks that can't run yet	存储当前尚不能运行的task.
 	)
 	// Put trusted nodes into a map to speed up checks.
 	// Trusted peers are loaded on startup and cannot be
@@ -479,38 +483,45 @@ func (srv *Server) run(dialstate dialer) {
 	}
 
 	// removes t from runningTasks
+	//delTask是一个函数对象,实现从runningTasks切片中删除task的功能.如果task在runningTasks中,则删除,否则什么都不做.
 	delTask := func(t task) {
 		for i := range runningTasks {
 			if runningTasks[i] == t {
-				runningTasks = append(runningTasks[:i], runningTasks[i+1:]...)
+				runningTasks = append(runningTasks[:i], runningTasks[i+1:]...)	//把第i个元素删除掉.
 				break
 			}
 		}
 	}
 	// starts until max number of active tasks is satisfied
+	//启动参数ts中的任务,返回尚未执行的任务.
 	startTasks := func(ts []task) (rest []task) {
 		i := 0
+		//循环处理参数ts中的task.
 		for ; len(runningTasks) < maxActiveDialTasks && i < len(ts); i++ {
 			t := ts[i]
 			log.Trace("New dial task", "task", t)
-			go func() { t.Do(srv); taskdone <- t }()
-			runningTasks = append(runningTasks, t)
+			go func() { t.Do(srv); taskdone <- t }()	//启动一个新的协程调用匿名函数. 这个匿名函数做了两件事情,第一个事情是执行这个task,第二个事情是执行完成之后把任务放到taskdone队列中.
+			runningTasks = append(runningTasks, t)		//把task加入到runningTasks列表中.
 		}
-		return ts[i:]
+		return ts[i:]	//返回剩余还尚未处理的task列表.剩余的原因有可能是当前正在运行的tasks已经达到最大值了.
 	}
+
+	//scheduleTasks是一个匿名函数.
 	scheduleTasks := func() {
 		// Start from queue first.
+		//调用startTasks执行queuedTasks中的任务,并把尚未执行的重新添加到queuedTasks切片中.
 		queuedTasks = append(queuedTasks[:0], startTasks(queuedTasks)...)
 		// Query dialer for new tasks and start as many as possible now.
+		//当前还有空间再启动新的task.
 		if len(runningTasks) < maxActiveDialTasks {
-			nt := dialstate.newTasks(len(runningTasks)+len(queuedTasks), peers, time.Now())
-			queuedTasks = append(queuedTasks, startTasks(nt)...)
+			nt := dialstate.newTasks(len(runningTasks)+len(queuedTasks), peers, time.Now())	//创建新的tasks.
+			queuedTasks = append(queuedTasks, startTasks(nt)...)	//把新创建的task添加到queuedTasks切片中.
 		}
 	}
 
 running:
 	for {
-		scheduleTasks()
+		scheduleTasks()	//此处为执行一个匿名函数.
 
 		select {
 		case <-srv.quit:
@@ -555,15 +566,16 @@ running:
 			case <-srv.quit:
 				break running
 			}
-		case c := <-srv.addpeer:
+		case c := <-srv.addpeer:	//协议握手完成之后会把conn对象发送到srv.addpeer通道.
 			// At this point the connection is past the protocol handshake.
 			// Its capabilities are known and the remote identity is verified.
+			//走到此处说明链接已经通过了协议握手的过程,其能力(都支持哪些协议)是已知的,远程id也已经被验证过了.
 			err := srv.protoHandshakeChecks(peers, c)
 
 			//if err == nil && strings.Contains(truncateName(c.name),params.VersionMeta) {
 			if err == nil {
 			// The handshakes are done and it passed all checks.
-				p := newPeer(c, srv.Protocols)
+				p := newPeer(c, srv.Protocols)	//srv.Protocols支持的子协议,在NewProtocolManager的时候会设置srv.Protocols,对于Ethash和clique算法,会设置为eth协议,对于IBFT,会设置为istanbul协议.
 				// If message events are enabled, pass the peerFeed
 				// to the peer
 				if srv.EnableMsgEvents {
@@ -573,8 +585,8 @@ running:
 
 
 				log.Debug("Adding p2p peer", "id", c.id, "name", name, "addr", c.fd.RemoteAddr(), "peers", len(peers)+1)
-				peers[c.id] = p
-				go srv.runPeer(p)
+				peers[c.id] = p		//peers是已经建立了p2p连接的节点.
+				go srv.runPeer(p)	//在单独协程启动peer对象.
 			}
 			// The dialer logic relies on the assumption that
 			// dial tasks complete after the peer has been added or
@@ -644,6 +656,7 @@ type tempError interface {
 
 // listenLoop runs in its own goroutine and accepts
 // inbound connections.
+//接受其他节点发起的tcp连接.
 func (srv *Server) listenLoop() {
 	defer srv.loopWG.Done()
 	log.Info("RLPx listener up", "self", srv.makeSelf(srv.listener, srv.ntab))
@@ -651,18 +664,21 @@ func (srv *Server) listenLoop() {
 	// This channel acts as a semaphore limiting
 	// active inbound connections that are lingering pre-handshake.
 	// If all slots are taken, no further connections are accepted.
-	tokens := maxAcceptConns
+	tokens := maxAcceptConns	//最大接受的tcp连接数.
 	if srv.MaxPendingPeers > 0 {
 		tokens = srv.MaxPendingPeers
 	}
+
+	//slots的处理保证了正在处理的tcp连接最多智能是50个,超出50个的话slots消耗光了,智能在<-slots处等待.
+	//在后面的处理连接的go历程执行完毕之后,又填充了slots,然后就又可以accept()连接了.这是一个非常清楚的编程模式.
 	slots := make(chan struct{}, tokens)
 	for i := 0; i < tokens; i++ {
-		slots <- struct{}{}
+		slots <- struct{}{}	//struct{}是空结构体类型,是一个类型. struct{}{}定义了一个空结构体实例.
 	}
 
 	for {
 		// Wait for a handshake slot before accepting.
-		<-slots
+		<-slots	//等待一个handshake槽位.
 
 		var (
 			fd  net.Conn
@@ -696,7 +712,7 @@ func (srv *Server) listenLoop() {
 		// Spawn the handler. It will give the slot back when the connection
 		// has been established.
 		go func() {
-			srv.SetupConn(fd, inboundConn, nil)
+			srv.SetupConn(fd, inboundConn, nil)	//注意第二个参数为空.(协议接收端dialDest为空,协议发送端dialTest不空.)
 			slots <- struct{}{}
 		}()
 	}
@@ -735,7 +751,7 @@ func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *discover.Nod
 		return
 	}
 	// Run the protocol handshake
-	phs, err := c.doProtoHandshake(srv.ourHandshake)
+	phs, err := c.doProtoHandshake(srv.ourHandshake)	//协议握手操作.
 	if err != nil {
 		clog.Trace("Failed proto handshake", "err", err)
 		c.close(err)
@@ -747,7 +763,7 @@ func (srv *Server) SetupConn(fd net.Conn, flags connFlag, dialDest *discover.Nod
 		return
 	}
 	c.caps, c.name = phs.Caps, phs.Name
-	if err := srv.checkpoint(c, srv.addpeer); err != nil {
+	if err := srv.checkpoint(c, srv.addpeer); err != nil {		//把c发送到srv.addpeer通道.
 		clog.Trace("Rejected peer", "err", err)
 		c.close(err)
 		return
@@ -767,7 +783,7 @@ func truncateName(s string) string {
 // post-handshake checks for the stage (posthandshake, addpeer).
 func (srv *Server) checkpoint(c *conn, stage chan<- *conn) error {
 	select {
-	case stage <- c:
+	case stage <- c:	//把c发送到stage通道.
 	case <-srv.quit:
 		return errServerStopped
 	}
@@ -782,6 +798,7 @@ func (srv *Server) checkpoint(c *conn, stage chan<- *conn) error {
 // runPeer runs in its own goroutine for each peer.
 // it waits until the Peer logic returns and removes
 // the peer.
+//对于每个peer启动一个单独的协程,此协程直到peer退出才退出.
 func (srv *Server) runPeer(p *Peer) {
 	if srv.newPeerHook != nil {
 		srv.newPeerHook(p)
@@ -794,7 +811,7 @@ func (srv *Server) runPeer(p *Peer) {
 	})
 
 	// run the protocol
-	remoteRequested, err := p.run()
+	remoteRequested, err := p.run()	//运行server的subprotocol.
 
 	// broadcast peer drop
 	srv.peerFeed.Send(&PeerEvent{
