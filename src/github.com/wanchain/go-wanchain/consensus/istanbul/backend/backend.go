@@ -41,6 +41,11 @@ const (
 	fetcherID = "istanbul"
 )
 
+/*
+	lru是一个缓存管理算法.github.com链接地址: https://github.com/hashicorp/golang-lru
+		ARC:一种缓存机制,Adaptive Replacement Cache (ARC).
+*/
+
 //創建istanbul backend.
 // New creates an Ethereum backend for Istanbul core engine.
 func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Database) consensus.Istanbul {
@@ -52,7 +57,7 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		config:           config,
 		istanbulEventMux: new(event.TypeMux),
 		privateKey:       privateKey,
-		address:          crypto.PubkeyToAddress(privateKey.PublicKey),
+		address:          crypto.PubkeyToAddress(privateKey.PublicKey),	//从公钥获得地址.
 		logger:           log.New(),
 		db:               db,
 		commitCh:         make(chan *types.Block, 1),	//cimmitCh是一个异步channel,带有一个元素缓存。此处创建的commitCh在Start()函数中被关闭重新创建了。
@@ -63,17 +68,17 @@ func New(config *istanbul.Config, privateKey *ecdsa.PrivateKey, db ethdb.Databas
 		knownMessages:    knownMessages,
 	}
 	//創建istanbul consensus core,并關聯到backend.core域。
-	backend.core = istanbulCore.New(backend, backend.config)
+	backend.core = istanbulCore.New(backend, backend.config)	//创建ibft core.
 	return backend
 }
 
 // ----------------------------------------------------------------------------
 
 type backend struct {
-	config           *istanbul.Config
+	config           *istanbul.Config	//ibft配置结构体.
 	istanbulEventMux *event.TypeMux
-	privateKey       *ecdsa.PrivateKey
-	address          common.Address
+	privateKey       *ecdsa.PrivateKey	//私钥.
+	address          common.Address		//地址,与私钥相关联.
 	core             istanbulCore.Engine
 	logger           log.Logger
 	db               ethdb.Database

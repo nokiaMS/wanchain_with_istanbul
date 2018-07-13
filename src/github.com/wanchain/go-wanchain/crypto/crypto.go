@@ -197,8 +197,9 @@ func ValidateSignatureValues(v byte, r, s *big.Int, homestead bool) bool {
 	return r.Cmp(secp256k1_N) < 0 && s.Cmp(secp256k1_N) < 0 && (v == 0 || v == 1)
 }
 
+//从公钥获得地址.
 func PubkeyToAddress(p ecdsa.PublicKey) common.Address {
-	pubBytes := FromECDSAPub(&p)
+	pubBytes := FromECDSAPub(&p)	//获得公钥的字节表示形式.
 	return common.BytesToAddress(Keccak256(pubBytes[1:])[12:])
 }
 

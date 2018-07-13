@@ -71,7 +71,7 @@ func (n *BlockNonce) UnmarshalText(input []byte) error {
 type Header struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`		//当前区块的父区块.
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`		//当前区块的uncle区块,uncle区块是没有在主链上的块.
-	Coinbase    common.Address `json:"miner"            gencodec:"required"`		//挖出此区块的账号.
+	Coinbase    common.Address `json:"miner"            gencodec:"required"`		//挖出此区块的账号.	ibft中没有用到,在Prepare函数中设置为空.
 	Root        common.Hash    `json:"stateRoot"        gencodec:"required"`		//状态树.
 	TxHash      common.Hash    `json:"transactionsRoot" gencodec:"required"`		//交易树.
 	ReceiptHash common.Hash    `json:"receiptsRoot"     gencodec:"required"`		//回执树.
@@ -82,8 +82,8 @@ type Header struct {
 	GasUsed     *big.Int       `json:"gasUsed"          gencodec:"required"`		//当前区块使用了多少gas.
 	Time        *big.Int       `json:"timestamp"        gencodec:"required"`		//区块产生的时间戳.
 	Extra       []byte         `json:"extraData"        gencodec:"required"`		//区块的extraData数据.
-	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`		//共识算法标志,在ibft中,这个值必须填写共识要求的特定值,否则共识失败.
-	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`		//区块的nonce值.
+	MixDigest   common.Hash    `json:"mixHash"          gencodec:"required"`		//共识算法标志,在ibft中,这个值必须填写共识要求的特定值,否则共识失败.	//在prepare函数中设置为ibft定义的mixhash.
+	Nonce       BlockNonce     `json:"nonce"            gencodec:"required"`		//区块的nonce值. ibft中没有用到,在prepare函数中设置为空.
 }
 
 // field type overrides for gencodec

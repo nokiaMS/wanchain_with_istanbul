@@ -40,9 +40,9 @@ import (
 
 const (
 	checkpointInterval = 1024 // Number of blocks after which to save the vote snapshot to the database
-	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
-	inmemoryPeers      = 40
-	inmemoryMessages   = 1024
+	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory	ARC大小.
+	inmemoryPeers      = 40	//ARC大小.
+	inmemoryMessages   = 1024		//ARC大小.
 )
 
 var (
@@ -317,18 +317,19 @@ func (sb *backend) VerifySeal(chain consensus.ChainReader, header *types.Header)
 // rules of a particular engine. The changes are executed inline.
 func (sb *backend) Prepare(chain consensus.ChainReader, header *types.Header, mining bool) error {
 	// unused fields, force to set to empty
+	//以下三个域在ibft中并没有使用到,设置为默认值.
 	header.Coinbase = common.Address{}
 	header.Nonce = emptyNonce
 	header.MixDigest = types.IstanbulDigest
 
 	// copy the parent extra data as the header extra data
-	number := header.Number.Uint64()
-	parent := chain.GetHeader(header.ParentHash, number-1)
+	number := header.Number.Uint64()	//block编号.
+	parent := chain.GetHeader(header.ParentHash, number-1)	//获得parent块.
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
 	// use the same difficulty for all blocks
-	header.Difficulty = defaultDifficulty
+	header.Difficulty = defaultDifficulty	//difficulty也设置为默认值1,因为在ibft中并没有使用到这个函数.
 
 	// Assemble the voting snapshot
 	snap, err := sb.snapshot(chain, number-1, header.ParentHash, nil)
