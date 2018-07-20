@@ -238,10 +238,11 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.reset(nil, chain.CurrentBlock().Header())	//以當前鏈頭的header作為參數.
 
 	// If local transactions and journaling is enabled, load from disk
+	//是否从磁盘的journal文件中加载交易受参数nolocals控制,如果配置了nolocals为true那么则不从journal中加载交易,如果文件不存在也不加载交易.
 	if !config.NoLocals && config.Journal != "" {
-		pool.journal = newTxJournal(config.Journal)
+		pool.journal = newTxJournal(config.Journal)	//创建一个新的交易对象.
 
-		if err := pool.journal.load(pool.AddLocal); err != nil {
+		if err := pool.journal.load(pool.AddLocal); err != nil {	//从磁盘中加载交易.
 			log.Warn("Failed to load transaction journal", "err", err)
 		}
 		if err := pool.journal.rotate(pool.local()); err != nil {
