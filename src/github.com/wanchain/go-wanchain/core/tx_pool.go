@@ -795,7 +795,7 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // AddLocal enqueues a single transaction into the pool if it is valid, marking
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
-//把交易添加到txpool中.
+//把本地交易添加到txpool中.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
