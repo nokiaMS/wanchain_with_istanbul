@@ -29,11 +29,11 @@ type account struct {
 }
 
 type ManagedState struct {
-	*StateDB
+	*StateDB	//state db指针.
 
-	mu sync.RWMutex
+	mu sync.RWMutex		//读写锁.
 
-	accounts map[common.Address]*account
+	accounts map[common.Address]*account	//账户地址及账户对象的映射.
 }
 
 // ManagedState returns a new managed state with the statedb as it's backing layer
@@ -87,14 +87,14 @@ func (ms *ManagedState) NewNonce(addr common.Address) uint64 {
 // Because GetNonce mutates the DB, we must take a write lock.
 //返回账户当前的nonce值.
 func (ms *ManagedState) GetNonce(addr common.Address) uint64 {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
+	ms.mu.Lock()	//managedState加锁.
+	defer ms.mu.Unlock()	//managedState解锁.
 
-	if ms.hasAccount(addr) {
-		account := ms.getAccount(addr)
-		return uint64(len(account.nonces)) + account.nstart
+	if ms.hasAccount(addr) {	//如果managedState包含这个账户.
+		account := ms.getAccount(addr)	//获得账户对象.
+		return uint64(len(account.nonces)) + account.nstart	//???
 	} else {
-		return ms.StateDB.GetNonce(addr)
+		return ms.StateDB.GetNonce(addr)	//从state db中读取当前账户的nonce.
 	}
 }
 

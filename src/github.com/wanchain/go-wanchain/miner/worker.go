@@ -359,16 +359,16 @@ func (self *worker) wait() {
 				mustCommitNewWork = false
 			}
 			// Broadcast the block and announce chain insertion event
-			self.mux.Post(core.NewMinedBlockEvent{Block: block})
+			self.mux.Post(core.NewMinedBlockEvent{Block: block})		//发送NewMinedBlockEvent事件,在这个事件的响应函数中会把块和块的hash广播给部分peers(不是广播给全部的peers.)
 			var (
 				events []interface{}
 				logs   = work.state.Logs()
 			)
-			events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})
+			events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})	//ChainEvent事件.
 			if stat == core.CanonStatTy {
-				events = append(events, core.ChainHeadEvent{Block: block})
+				events = append(events, core.ChainHeadEvent{Block: block})	//ChainHeadEvent事件.
 			}
-			self.chain.PostChainEvents(events, logs)
+			self.chain.PostChainEvents(events, logs)	//feed事件.
 
 			// Insert the block into the set of pending ones to wait for confirmations
 			self.unconfirmed.Insert(block.NumberU64(), block.Hash())	//把agent返回来已经经过共识算法确认的，并且已经写到链上的块放到unconfirmed块集合中等待确认。

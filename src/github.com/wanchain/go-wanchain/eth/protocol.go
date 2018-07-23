@@ -50,13 +50,13 @@ const ProtocolMaxMsgSize = 10 * 1024 * 1024 // Maximum cap on the size of a prot
 const (
 	// Protocol messages belonging to eth/62
 	StatusMsg          = 0x00
-	NewBlockHashesMsg  = 0x01
-	TxMsg              = 0x02		//交易消息.
+	NewBlockHashesMsg  = 0x01		//发送新产生的块的hash.
+	TxMsg              = 0x02		//广播新的交易给peer.
 	GetBlockHeadersMsg = 0x03
 	BlockHeadersMsg    = 0x04
 	GetBlockBodiesMsg  = 0x05
 	BlockBodiesMsg     = 0x06
-	NewBlockMsg        = 0x07
+	NewBlockMsg        = 0x07		//发送新块的消息.
 
 	// Protocol messages belonging to eth/63
 	GetNodeDataMsg = 0x0d

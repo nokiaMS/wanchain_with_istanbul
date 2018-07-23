@@ -64,8 +64,8 @@ type peer struct {
 	td   *big.Int
 	lock sync.RWMutex
 
-	knownTxs    *set.Set // Set of transaction hashes known to be known by this peer
-	knownBlocks *set.Set // Set of block hashes known to be known by this peer
+	knownTxs    *set.Set // Set of transaction hashes known to be known by this peer	//已经确认peer已经收到的交易.
+	knownBlocks *set.Set // Set of block hashes known to be known by this peer		//已经确认peer已经收到的块.
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -140,13 +140,14 @@ func (p *peer) Send(msgcode uint64, data interface{}) error {
 // in its transaction hash set for future reference.
 func (p *peer) SendTransactions(txs types.Transactions) error {
 	for _, tx := range txs {
-		p.knownTxs.Add(tx.Hash())
+		p.knownTxs.Add(tx.Hash())	//把给每个peer广播的消息添加到peer的已知交易列表中.
 	}
-	return p2p.Send(p.rw, TxMsg, txs)
+	return p2p.Send(p.rw, TxMsg, txs)	//广播新的交易给peers.
 }
 
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
+//发送新的块的hash.
 func (p *peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
 	for _, hash := range hashes {
 		p.knownBlocks.Add(hash)
@@ -156,13 +157,14 @@ func (p *peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error 
 		request[i].Hash = hashes[i]
 		request[i].Number = numbers[i]
 	}
-	return p2p.Send(p.rw, NewBlockHashesMsg, request)
+	return p2p.Send(p.rw, NewBlockHashesMsg, request)	//发送新产生的块的hash.
 }
 
 // SendNewBlock propagates an entire block to a remote peer.
+//向peer发送块.
 func (p *peer) SendNewBlock(block *types.Block, td *big.Int) error {
-	p.knownBlocks.Add(block.Hash())
-	return p2p.Send(p.rw, NewBlockMsg, []interface{}{block, td})
+	p.knownBlocks.Add(block.Hash())		//把当前的block hash添加到节点的knownBlocks列表中.
+	return p2p.Send(p.rw, NewBlockMsg, []interface{}{block, td})	//向peer发送新的块.
 }
 
 // SendBlockHeaders sends a batch of block headers to the remote peer.

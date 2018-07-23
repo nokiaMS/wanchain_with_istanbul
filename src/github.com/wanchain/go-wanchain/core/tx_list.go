@@ -66,6 +66,7 @@ func newTxSortedMap() *txSortedMap {
 }
 
 // Get retrieves the current transactions associated with the given nonce.
+//返回指定nonce的交易,没有则返回nil.
 func (m *txSortedMap) Get(nonce uint64) *types.Transaction {
 	return m.items[nonce]
 }
@@ -83,6 +84,7 @@ func (m *txSortedMap) Put(tx *types.Transaction) {
 // Forward removes all transactions from the map with a nonce lower than the
 // provided threshold. Every removed transaction is returned for any post-removal
 // maintenance.
+//返回指定账户的交易列表中所有nonce小于threshold的交易.
 func (m *txSortedMap) Forward(threshold uint64) types.Transactions {
 	var removed types.Transactions
 
@@ -242,6 +244,7 @@ func newTxList(strict bool) *txList {
 
 // Overlaps returns whether the transaction specified has the same nonce as one
 // already contained within the list.
+//判断当前pool中是否有与参数tx nonce值相同的交易. 有返回true,没有返回false.
 func (l *txList) Overlaps(tx *types.Transaction) bool {
 	return l.txs.Get(tx.Nonce()) != nil
 }
@@ -251,17 +254,19 @@ func (l *txList) Overlaps(tx *types.Transaction) bool {
 //
 // If the new transaction is accepted into the list, the lists' cost and gas
 // thresholds are also potentially updated.
+//在向同一个账户的tx列表中插入nonce值相同的交易时会调用此函数.
+//l是一个账户在pool中的所有交易的列表.
 func (l *txList) Add(tx *types.Transaction, priceBump uint64) (bool, *types.Transaction) {
 	// If there's an older better transaction, abort
-	old := l.txs.Get(tx.Nonce())
-	if old != nil {
+	old := l.txs.Get(tx.Nonce())	//从tx列表中获得与参数tx nonce值相同的交易.
+	if old != nil { //有nonce值相同的交易,那么对于已经在pool中的交易的price与当前tx的price,如果当前tx price大于已经存在的交易的price的1.1倍,则替换,否则新交易添加失败.大于多少倍受到gwan参数pricebump控制.
 		threshold := new(big.Int).Div(new(big.Int).Mul(old.GasPrice(), big.NewInt(100+int64(priceBump))), big.NewInt(100))
 		if threshold.Cmp(tx.GasPrice()) >= 0 {
 			return false, nil
 		}
 	}
 	// Otherwise overwrite the old transaction with the current one
-	l.txs.Put(tx)
+	l.txs.Put(tx)	//覆盖或者新添加交易的list中. 如果pool中存在nonce值相同的交易则覆盖,否则新加.
 	if cost := tx.Cost(); l.costcap.Cmp(cost) < 0 {
 		l.costcap = cost
 	}
@@ -497,7 +502,7 @@ func (l *txPricedList) Cap(threshold *big.Int, local *accountSet) types.Transact
 // 对非本地交易,如果交易的price小于或者等于交易池中的交易的最小gasprice,则返回true; 否则返回false.
 func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) bool {
 	// Local transactions cannot be underpriced
-	if local.containsTx(tx) {
+	if local.containsTx(tx) {	//本地交易的话不会做underpriced的判断.
 		return false
 	}
 	// Discard stale price points if found at the heap start
@@ -521,27 +526,29 @@ func (l *txPricedList) Underpriced(tx *types.Transaction, local *accountSet) boo
 
 // Discard finds a number of most underpriced transactions, removes them from the
 // priced list and returns them for further removal from the entire pool.
+//返回需要丢弃的交易列表(从函数逻辑看只会返回非本地交易,不会返回本地交易.)
+//需要丢弃的数量为"当前pool中交易数量 - 4096 - 1024 + 1"
 func (l *txPricedList) Discard(count int, local *accountSet) types.Transactions {
-	drop := make(types.Transactions, 0, count) // Remote underpriced transactions to drop
-	save := make(types.Transactions, 0, 64)    // Local underpriced transactions to keep
+	drop := make(types.Transactions, 0, count) // Remote underpriced transactions to drop	//drop是需要移除的非本地交易列表.
+	save := make(types.Transactions, 0, 64)    // Local underpriced transactions to keep	//save是需要保留的本地交易列表.
 
-	for len(*l.items) > 0 && count > 0 {
+	for len(*l.items) > 0 && count > 0 {	//循环处理本地pool中的交易.
 		// Discard stale transactions if found during cleanup
-		tx := heap.Pop(l.items).(*types.Transaction)
-		if _, ok := (*l.all)[tx.Hash()]; !ok {
+		tx := heap.Pop(l.items).(*types.Transaction)	//返回一个交易(应该是price值最低的交易.)
+		if _, ok := (*l.all)[tx.Hash()]; !ok {	//交易hash不存在,继续处理下一个交易.
 			l.stales--
 			continue
 		}
 		// Non stale transaction found, discard unless local
-		if local.containsTx(tx) {
+		if local.containsTx(tx) {	//如果交易是本地交易,那么放在save中.
 			save = append(save, tx)
 		} else {
-			drop = append(drop, tx)
+			drop = append(drop, tx)	//如果交易不是本地交易,那么放在drop中.
 			count--
 		}
 	}
-	for _, tx := range save {
+	for _, tx := range save {	//所有交易处理完成之后重新把本地交易添加到pool中.
 		heap.Push(l.items, tx)
 	}
-	return drop
+	return drop	//返回需要丢弃的非本地交易.
 }
