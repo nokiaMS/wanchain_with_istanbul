@@ -49,7 +49,7 @@ type Node struct {
 	serverConfig p2p.Config  //p2p配置信息.
 	server       *p2p.Server // Currently running P2P networking layer		//节点的p2p server.
 
-	serviceFuncs []ServiceConstructor     // Service constructors (in dependency order)	//节点中注册了的服务.
+	serviceFuncs []ServiceConstructor     // Service constructors (in dependency order)	//存储服务构造函数.
 	services     map[reflect.Type]Service // Currently running services	//当前节点中运行的各种服务实例.
 
 	rpcAPIs       []rpc.API   // List of APIs currently provided by the node
@@ -68,7 +68,7 @@ type Node struct {
 	wsListener net.Listener // Websocket RPC listener socket to server API requests
 	wsHandler  *rpc.Server  // Websocket RPC request handler to process the API requests
 
-	stop chan struct{} // Channel to wait for termination notifications	//termination notification通道.
+	stop chan struct{} // Channel to wait for termination notifications	//stop通道用于接收进程的结束信号.
 	lock sync.RWMutex	//node锁。
 }
 
@@ -120,6 +120,7 @@ func New(conf *Config) (*Node, error) {
 // Register injects a new service into the node's stack. The service created by
 // the passed constructor must be unique in its type with regard to sibling ones.
 //向节点注册服务.
+//注册服务即是把服务的构造函数添加到节点的serviceFuncs中.
 func (n *Node) Register(constructor ServiceConstructor) error {
 	n.lock.Lock()
 	defer n.lock.Unlock()
@@ -536,6 +537,7 @@ func (n *Node) Stop() error {
 
 // Wait blocks the thread until the node is stopped. If the node is not running
 // at the time of invocation, the method immediately returns.
+//阻塞在stop信号通道,一旦收到stop消息,则进程结束.
 func (n *Node) Wait() {
 	n.lock.RLock()
 	if n.server == nil {

@@ -138,7 +138,7 @@ func (b *EthApiBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 
 //已经签名的交易放到txpool中.
 func (b *EthApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	return b.eth.txPool.AddLocal(signedTx)
+	return b.eth.txPool.AddLocal(signedTx)	//能够调用到SendTx这个接口的操作都是直接连接到本节点的，广播的交易不会调用到SendTx接口，SendTx中调用函数AddLocal来添加本地交易。
 }
 
 func (b *EthApiBackend) GetPoolTransactions() (types.Transactions, error) {

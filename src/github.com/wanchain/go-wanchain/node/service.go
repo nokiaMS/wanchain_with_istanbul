@@ -76,6 +76,7 @@ func (ctx *ServiceContext) NodeKey() *ecdsa.PrivateKey {
 
 // ServiceConstructor is the function signature of the constructors needed to be
 // registered for service instantiation.
+//ServiceConstructor即函数指针.
 type ServiceConstructor func(ctx *ServiceContext) (Service, error)
 
 // Service is an individual protocol that can be registered into a node.

@@ -29,7 +29,7 @@ import (
 
 // Account represents an Ethereum account located at a specific location defined
 // by the optional URL field.
-//账号结构体.
+//账号
 type Account struct {
 	Address common.Address `json:"address"` // Ethereum account address derived from the key
 	URL     URL            `json:"url"`     // Optional resource locator within a backend
@@ -37,6 +37,7 @@ type Account struct {
 
 // Wallet represents a software or hardware wallet that might contain one or more
 // accounts (derived from the same seed).
+//钱包
 type Wallet interface {
 	// URL retrieves the canonical path under which this wallet is reachable. It is
 	// user by upper layers to define a sorting order over all wallets from multiple

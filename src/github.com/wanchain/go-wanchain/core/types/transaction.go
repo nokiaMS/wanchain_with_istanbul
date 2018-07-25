@@ -226,6 +226,7 @@ func (tx *Transaction) To() *common.Address {
 
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
+//计算交易hash，此hash唯一标识一个交易。
 func (tx *Transaction) Hash() common.Hash {
 	if hash := tx.hash.Load(); hash != nil {
 		return hash.(common.Hash)

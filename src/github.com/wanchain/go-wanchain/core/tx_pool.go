@@ -196,7 +196,7 @@ type TxPool struct {
 
 	currentState  *state.StateDB      // Current state in the blockchain head
 	pendingState  *state.ManagedState // Pending state tracking virtual nonces
-	currentMaxGas *big.Int            // Current gas limit for transaction caps	//即创世块中设置的GasLimit.(会动态调整.)
+	currentMaxGas *big.Int            // Current gas limit for transaction caps	//即创世块中设置的GasLimit.(会动态调整.) 代表的时当前即将出的块的gas limit限制。
 
 	locals  *accountSet // Set of local transaction to exepmt from evicion rules
 	journal *txJournal  // Journal of local transaction to back up to disk		//备份到磁盘的本地交易日志.
@@ -567,18 +567,18 @@ func (pool *TxPool) local() map[common.Address]types.Transactions {
 // rules and adheres to some heuristic limits of the local node (price and size).
 //验证交易是否有效.
 func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
-	if !types.IsValidTransactionType(tx.Txtype()) {
+	if !types.IsValidTransactionType(tx.Txtype()) {	//检查交易类型是否有效。
 		return ErrInvalidTxType
 	}
 
 	// Heuristic limit, reject transactions over 32KB to prevent DOS attacks
-	if tx.Size() > 32*1024 {
+	if tx.Size() > 32*1024 {	//不允许超过32K的交易。
 		return ErrOversizedData
 	}
 
 	// Transactions can't be negative. This may never happen using RLP decoded
 	// transactions but may occur if you create a transaction using the RPC.
-	if tx.Value().Sign() < 0 {
+	if tx.Value().Sign() < 0 {	//不允许转账钱数小于0的交易。
 		return ErrNegativeValue
 	}
 	// Ensure the transaction doesn't exceed the current block limit gas.
@@ -828,6 +828,7 @@ func (pool *TxPool) AddRemotes(txs []*types.Transaction) error {
 
 // addTx enqueues a single transaction into the pool if it is valid.
 //添加交易到txpool中.
+//local为gwan的配置参数nolocals的值。
 func (pool *TxPool) addTx(tx *types.Transaction, local bool) error {
 	pool.mu.Lock()	//加写锁.(加写锁导致即不能读也不能写.)
 	defer pool.mu.Unlock()		//函数执行结束后自动解锁.
