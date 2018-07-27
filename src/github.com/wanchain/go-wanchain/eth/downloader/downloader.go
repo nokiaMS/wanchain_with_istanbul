@@ -143,7 +143,7 @@ type Downloader struct {
 	cancelCh   chan struct{} // Channel to cancel mid-flight syncs
 	cancelLock sync.RWMutex  // Lock to protect the cancel channel and peer in delivers
 
-	quitCh   chan struct{} // Quit channel to signal termination
+	quitCh   chan struct{} // Quit channel to signal termination	退出信号通道.
 	quitLock sync.RWMutex  // Lock to prevent double closes
 
 	// Testing hooks
@@ -206,7 +206,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 	if lightchain == nil {
 		lightchain = chain
 	}
-
+	//创建downloader对象.
 	dl := &Downloader{
 		mode:           mode,
 		stateDB:        stateDb,
@@ -1531,9 +1531,9 @@ func (d *Downloader) qosTuner() {
 		// Log the new QoS values and sleep until the next RTT
 		log.Debug("Recalculated downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
 		select {
-		case <-d.quitCh:
+		case <-d.quitCh:	//接收退出信号,收到退出信号后函数退出.
 			return
-		case <-time.After(rtt):
+		case <-time.After(rtt):	//等待rtt的超时时间,然后重新计算rtt,重新开始计算超时.
 		}
 	}
 }
