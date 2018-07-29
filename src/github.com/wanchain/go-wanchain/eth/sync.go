@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	forceSyncCycle      = 10 * time.Second // Time interval to force syncs, even if few peers are available
+	forceSyncCycle      = 10 * time.Second // Time interval to force syncs, even if few peers are available	强制同步周期，即使几乎没有peer可用也会执行同步过程。
 	minDesiredPeerCount = 5                // Amount of peers desired to start syncing
 
 	// This is the target size for the packs of transactions sent by txsyncLoop.
@@ -131,17 +131,18 @@ func (pm *ProtocolManager) txsyncLoop() {
 
 // syncer is responsible for periodically synchronising with the network, both
 // downloading hashes and blocks as well as handling the announcement handler.
+// syncer用于周期性与网络同步。
 func (pm *ProtocolManager) syncer() {
 	// Start and ensure cleanup of sync mechanisms
-	pm.fetcher.Start()
-	defer pm.fetcher.Stop()
-	defer pm.downloader.Terminate()
+	pm.fetcher.Start()	//启动fetcher.
+	defer pm.fetcher.Stop()		//函数结束时停止fetcher。
+	defer pm.downloader.Terminate()		//函数结束时停止downloader。
 
 	// Wait for different events to fire synchronisation operations
-	forceSync := time.NewTicker(forceSyncCycle)
-	defer forceSync.Stop()
+	forceSync := time.NewTicker(forceSyncCycle)	//forceSync是一个强制同步的定时器，默认时间为10秒进行一次强制同步。
+	defer forceSync.Stop()	//在函数退出的时候销毁forceSync定时器。
 
-	for {
+	for {	//无线循环处理事件。
 		select {
 		case <-pm.newPeerCh:
 			// Make sure we have peers to select from, then sync
@@ -150,8 +151,9 @@ func (pm *ProtocolManager) syncer() {
 			}
 			go pm.synchronise(pm.peers.BestPeer())
 
-		case <-forceSync.C:
+		case <-forceSync.C:		//响应forceSync定时器到期事件。
 			// Force a sync even if not enough peers are present
+			//启动一个协程进行强制同步。
 			go pm.synchronise(pm.peers.BestPeer())
 
 		case <-pm.noMorePeers:
@@ -161,6 +163,7 @@ func (pm *ProtocolManager) syncer() {
 }
 
 // synchronise tries to sync up our local block chain with a remote peer.
+//本地链与peer同步。
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 	if peer == nil {

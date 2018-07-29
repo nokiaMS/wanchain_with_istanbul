@@ -94,12 +94,13 @@ func (p *peer) Info() *PeerInfo {
 
 // Head retrieves a copy of the current head hash and total difficulty of the
 // peer.
+//返回当前链头块的hash及整体难度值。
 func (p *peer) Head() (hash common.Hash, td *big.Int) {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
+	p.lock.RLock()	//加读锁。
+	defer p.lock.RUnlock()	//解读锁。
 
-	copy(hash[:], p.head[:])
-	return hash, new(big.Int).Set(p.td)
+	copy(hash[:], p.head[:])	//拷贝链头块hash值。
+	return hash, new(big.Int).Set(p.td)	//返回hash值及块的整体难度。
 }
 
 // SetHead updates the head hash and total difficulty of the peer.
@@ -408,20 +409,23 @@ func (ps *peerSet) PeersWithoutTx(hash common.Hash) []*peer {
 }
 
 // BestPeer retrieves the known peer with the currently highest total difficulty.
+//返回当前具有最大整体难度值的peer
+// (这个peer说明具有最新的块，所以需要从这个链上进行同步。)
 func (ps *peerSet) BestPeer() *peer {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+	ps.lock.RLock()	//peerSet加读锁。
+	defer ps.lock.RUnlock()		//函数退出解除读锁。
 
 	var (
-		bestPeer *peer
-		bestTd   *big.Int
+		bestPeer *peer	//最好的peer对象指针。
+		bestTd   *big.Int	//最好peer的整体难度。
 	)
-	for _, p := range ps.peers {
+	//遍历peers数组，获得具有最大td的peer并返回此peer。
+	for _, p := range ps.peers {	//遍历此节点的peers列表。
 		if _, td := p.Head(); bestPeer == nil || td.Cmp(bestTd) > 0 {
 			bestPeer, bestTd = p, td
 		}
 	}
-	return bestPeer
+	return bestPeer		//返回具有最大td的peer。（td最大说明这个peer具有最长的链。）
 }
 
 // Close disconnects all peers.
