@@ -130,12 +130,13 @@ type Fetcher struct {
 	queued map[common.Hash]*inject // Set of already queued blocks (to dedup imports)
 
 	// Callbacks
-	getBlock       blockRetrievalFn   // Retrieves a block from the local chain
-	verifyHeader   headerVerifierFn   // Checks if a block's headers have a valid proof of work
-	broadcastBlock blockBroadcasterFn // Broadcasts a block to connected peers
-	chainHeight    chainHeightFn      // Retrieves the current chain's height
-	insertChain    chainInsertFn      // Injects a batch of blocks into the chain
-	dropPeer       peerDropFn         // Drops a peer for misbehaving
+	//定义了fetcher的回调函数.
+	getBlock       blockRetrievalFn   // Retrieves a block from the local chain					从本地链上获得指定函数的方法.
+	verifyHeader   headerVerifierFn   // Checks if a block's headers have a valid proof of work	验证区块头有效性的函数,在共识算法中定义.
+	broadcastBlock blockBroadcasterFn // Broadcasts a block to connected peers						向peers广播区块的方法.
+	chainHeight    chainHeightFn      // Retrieves the current chain's height						获得链高度的方法.
+	insertChain    chainInsertFn      // Injects a batch of blocks into the chain					把块插入到本地链上的方法.
+	dropPeer       peerDropFn         // Drops a peer for misbehaving								删除peer的方法.
 
 	// Testing hooks
 	announceChangeHook func(common.Hash, bool) // Method to call upon adding or deleting a hash from the announce list
@@ -146,6 +147,7 @@ type Fetcher struct {
 }
 
 // New creates a block fetcher to retrieve blocks based on hash announcements.
+//创建fetcher对象,fetcher用来基于hash获取块.
 func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBlock blockBroadcasterFn, chainHeight chainHeightFn, insertChain chainInsertFn, dropPeer peerDropFn) *Fetcher {
 	return &Fetcher{
 		notify:         make(chan *announce),
@@ -163,12 +165,12 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBloc
 		queue:          prque.New(),
 		queues:         make(map[string]int),
 		queued:         make(map[common.Hash]*inject),
-		getBlock:       getBlock,
-		verifyHeader:   verifyHeader,
-		broadcastBlock: broadcastBlock,
-		chainHeight:    chainHeight,
-		insertChain:    insertChain,
-		dropPeer:       dropPeer,
+		getBlock:       getBlock,			//获取块的函数.
+		verifyHeader:   verifyHeader,		//验证块头的函数.
+		broadcastBlock: broadcastBlock,		//广播块的函数.
+		chainHeight:    chainHeight,		//获得区块链高度的函数.
+		insertChain:    insertChain,		//插入链的函数.
+		dropPeer:       dropPeer,			//删除peer的函数.
 	}
 }
 

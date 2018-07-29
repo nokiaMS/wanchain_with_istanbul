@@ -432,7 +432,7 @@ func (h *Header) String() string {
 ]`, h.Hash(), h.ParentHash, h.UncleHash, h.Coinbase, h.Root, h.TxHash, h.ReceiptHash, h.Bloom, h.Difficulty, h.Number, h.GasLimit, h.GasUsed, h.Time, h.MixDigest, h.Nonce)
 }
 
-type Blocks []*Block
+type Blocks []*Block	//块指针数组.
 
 type BlockBy func(b1, b2 *Block) bool
 

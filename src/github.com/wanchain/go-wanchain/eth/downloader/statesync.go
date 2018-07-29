@@ -33,12 +33,13 @@ import (
 
 // stateReq represents a batch of state fetch requests groupped together into
 // a single data retrieval network packet.
+//stateReq是打包在一起的一批状态获取请求.
 type stateReq struct {
 	items    []common.Hash              // Hashes of the state items to download
 	tasks    map[common.Hash]*stateTask // Download tasks to track previous attempts
-	timeout  time.Duration              // Maximum round trip time for this to complete
+	timeout  time.Duration              // Maximum round trip time for this to complete	//请求完成的最长时间.
 	timer    *time.Timer                // Timer to fire when the RTT timeout expires
-	peer     *peerConnection            // Peer that we're requesting from
+	peer     *peerConnection            // Peer that we're requesting from		//执行请求的peer对象.即从哪个peer请求数据.
 	response [][]byte                   // Response data of the peer (nil for timeouts)
 	dropped  bool                       // Flag whether the peer dropped off early
 }
@@ -50,11 +51,12 @@ func (req *stateReq) timedOut() bool {
 
 // stateSyncStats is a collection of progress stats to report during a state trie
 // sync to RPC requests as well as to display in user logs.
+//只用于在用户日志中展示.
 type stateSyncStats struct {
-	processed  uint64 // Number of state entries processed
-	duplicate  uint64 // Number of state entries downloaded twice
-	unexpected uint64 // Number of non-requested state entries received
-	pending    uint64 // Number of still pending state entries
+	processed  uint64 // Number of state entries processed		//已经处理的state entry.
+	duplicate  uint64 // Number of state entries downloaded twice	//下载了两次的state entry.
+	unexpected uint64 // Number of non-requested state entries received	//收到的非请求state entry.
+	pending    uint64 // Number of still pending state entries		//仍然处于Pending状态(已经下载但是尚未被写入数据库)的state entry.
 }
 
 // syncState starts downloading state with the given root hash.
@@ -74,13 +76,13 @@ func (d *Downloader) syncState(root common.Hash) *stateSync {
 func (d *Downloader) stateFetcher() {
 	for {
 		select {
-		case s := <-d.stateSyncStart:
+		case s := <-d.stateSyncStart:	//响应状态同步开始事件.
 			for next := s; next != nil; {
 				next = d.runStateSync(next)
 			}
-		case <-d.stateCh:
+		case <-d.stateCh:	//对downloader来说,不处理收到的状态数据.
 			// Ignore state responses while no sync is running.
-		case <-d.quitCh:
+		case <-d.quitCh:	//响应退出信号.
 			return
 		}
 	}
@@ -88,30 +90,36 @@ func (d *Downloader) stateFetcher() {
 
 // runStateSync runs a state synchronisation until it completes or another root
 // hash is requested to be switched over to.
+//执行状态同步的过程.
+//当同步完成或者新的root hash需要同步的时候此函数结束.
 func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 	var (
-		active   = make(map[string]*stateReq) // Currently in-flight requests
-		finished []*stateReq                  // Completed or failed requests
-		timeout  = make(chan *stateReq)       // Timed out active requests
+		active   = make(map[string]*stateReq) // Currently in-flight requests	尚未处理的同步请求.
+		finished []*stateReq                  // Completed or failed requests	已经完成或者失败的同步请求.
+		timeout  = make(chan *stateReq)       // Timed out active requests	超时的尚未处理的同步请求.
 	)
+
+	//在退出的时候会执行此匿名函数.
 	defer func() {
 		// Cancel active request timers on exit. Also set peers to idle so they're
 		// available for the next sync.
+		//对于所有活跃但是尚未处理的请求,取消其定时器并且设置peer为idle状态以便处理下一次同步.
 		for _, req := range active {
-			req.timer.Stop()
-			req.peer.SetNodeDataIdle(len(req.items))
+			req.timer.Stop()	//停止同步请求的计时器.
+			req.peer.SetNodeDataIdle(len(req.items))	//设置peer为idele状态以便处理下一次同步.
 		}
 	}()
 	// Run the state sync.
-	go s.run()
-	defer s.Cancel()
+	go s.run()	//执行状态不同.
+	defer s.Cancel()	//函数结束的时候退出状态同步.
 
+	//订阅peer断开事件,一旦收到了peer断开事件,那么针对此peer的同步就不再继续了.
 	// Listen for peer departure events to cancel assigned tasks
-	peerDrop := make(chan *peerConnection, 1024)
-	peerSub := s.d.peers.SubscribePeerDrops(peerDrop)
-	defer peerSub.Unsubscribe()
+	peerDrop := make(chan *peerConnection, 1024)	//创建接收peer断开事件的通道.
+	peerSub := s.d.peers.SubscribePeerDrops(peerDrop)	//订阅peer断开事件.
+	defer peerSub.Unsubscribe()	//在函数退出的时候取消订阅.
 
-	for {
+	for {	//无限循环.
 		// Enable sending of the first buffered element if there is one.
 		var (
 			deliverReq   *stateReq
@@ -209,19 +217,19 @@ func (d *Downloader) runStateSync(s *stateSync) *stateSync {
 // stateSync schedules requests for downloading a particular state trie defined
 // by a given state root.
 type stateSync struct {
-	d *Downloader // Downloader instance to access and manage current peerset
+	d *Downloader // Downloader instance to access and manage current peerset	//downloader实例,用来管理当前peerset.
 
 	sched  *trie.TrieSync             // State trie sync scheduler defining the tasks
 	keccak hash.Hash                  // Keccak256 hasher to verify deliveries with
 	tasks  map[common.Hash]*stateTask // Set of tasks currently queued for retrieval
 
-	numUncommitted   int
-	bytesUncommitted int
+	numUncommitted   int		//已经下载但是尚未提交的交易数量.
+	bytesUncommitted int		//已经下载但是尚未提交的交易字节数.
 
 	deliver    chan *stateReq // Delivery channel multiplexing peer responses
 	cancel     chan struct{}  // Channel to signal a termination request
 	cancelOnce sync.Once      // Ensures cancel only ever gets called once
-	done       chan struct{}  // Channel to signal termination completion
+	done       chan struct{}  // Channel to signal termination completion		同步完成信号通道.
 	err        error          // Any error hit during sync (set before completion)
 }
 
@@ -271,15 +279,17 @@ func (s *stateSync) Cancel() error {
 // receive data from peers, rather those are buffered up in the downloader and
 // pushed here async. The reason is to decouple processing from data receipt
 // and timeouts.
+//loop是状态树同步的主要循环.
 func (s *stateSync) loop() error {
 	// Listen for new peer events to assign tasks to them
-	newPeer := make(chan *peerConnection, 1024)
-	peerSub := s.d.peers.SubscribeNewPeers(newPeer)
-	defer peerSub.Unsubscribe()
+	newPeer := make(chan *peerConnection, 1024)	//new peer事件接收通道.
+	peerSub := s.d.peers.SubscribeNewPeers(newPeer)	//订阅new peer事件.
+	defer peerSub.Unsubscribe()	//在函数结束时解除new peer事件的订阅.
 
 	// Keep assigning new tasks until the sync completes or aborts
-	for s.sched.Pending() > 0 {
-		if err := s.commit(false); err != nil {
+	//在同步完成或者退出之前持续发送任务给stateSync对象.
+	for s.sched.Pending() > 0 {	//如果还有尚未处理的同步请求,那么继续处理,直到所有请求都处理完毕.
+		if err := s.commit(false); err != nil {		//如果已经下载但是尚未提交的交易超出了指定的字节数,那么提交这些交易到状态数据库中.
 			return err
 		}
 		s.assignTasks()
@@ -312,22 +322,28 @@ func (s *stateSync) loop() error {
 			}
 		}
 	}
-	return s.commit(true)
+	return s.commit(true)	//在此函数退出的时候强制把尚未提交的交易提交到状态数据库中.
 }
 
+//提交需要同步的交易到状态数据库中.
+//force:
+//    true: 强制提交,不管当前有多少未提交的交易,均执行写状态数据库的操作.
+//    false: 非强制提交,只有未提交的交易的字节数达到了100K才进行交易的提交,如果小于100K则不进行交易提交.
 func (s *stateSync) commit(force bool) error {
+	//判断是否需要真正执行提交交易的动作.
 	if !force && s.bytesUncommitted < ethdb.IdealBatchSize {
 		return nil
 	}
+	//提交当前尚未提交的所有交易.
 	start := time.Now()
-	b := s.d.stateDB.NewBatch()
-	s.sched.Commit(b)
-	if err := b.Write(); err != nil {
+	b := s.d.stateDB.NewBatch()		//创建一个批量操作数据库的对象.
+	s.sched.Commit(b)				//把已经下载下来的交易首先存储到对象b中.
+	if err := b.Write(); err != nil {	//调用b对象的Write()函数批量写入交易到状态数据库中.
 		return fmt.Errorf("DB write error: %v", err)
 	}
-	s.updateStats(s.numUncommitted, 0, 0, time.Since(start))
-	s.numUncommitted = 0
-	s.bytesUncommitted = 0
+	s.updateStats(s.numUncommitted, 0, 0, time.Since(start))	//在用户日志中打印信息.
+	s.numUncommitted = 0	//所有交易均已经提交,把未提交交易数设置为0.
+	s.bytesUncommitted = 0	//所有下载的交易均已经提交,把未提交交易字节数设置为0.
 	return nil
 }
 
@@ -335,11 +351,11 @@ func (s *stateSync) commit(force bool) error {
 // batch currently being retried, or fetching new data from the trie sync itself.
 func (s *stateSync) assignTasks() {
 	// Iterate over all idle peers and try to assign them state fetches
-	peers, _ := s.d.peers.NodeDataIdlePeers()
-	for _, p := range peers {
+	peers, _ := s.d.peers.NodeDataIdlePeers()	//获得所有data idle节点的列表.
+	for _, p := range peers {	//处理每个data idle节点.
 		// Assign a batch of fetches proportional to the estimated latency/bandwidth
-		cap := p.NodeDataCapacity(s.d.requestRTT())
-		req := &stateReq{peer: p, timeout: s.d.requestTTL()}
+		cap := p.NodeDataCapacity(s.d.requestRTT())	//返回节点的状态数据下载吞吐率.
+		req := &stateReq{peer: p, timeout: s.d.requestTTL()}	//封装一个状态请求对象.
 		s.fillTasks(cap, req)
 
 		// If the peer was assigned tasks to fetch, send the network request
@@ -460,15 +476,21 @@ func (s *stateSync) processNodeData(blob []byte) (bool, common.Hash, error) {
 
 // updateStats bumps the various state sync progress counters and displays a log
 // message for the user to see.
+//更新统计状态,只用来在用户日志中打印信息.
+//written: 真正写入数据库的交易数.
+//duplicate: 重复交易数.
+//unexpected: 不应该到来的交易数.
+//duration: 从什么时间开始的统计.
 func (s *stateSync) updateStats(written, duplicate, unexpected int, duration time.Duration) {
-	s.d.syncStatsLock.Lock()
-	defer s.d.syncStatsLock.Unlock()
+	s.d.syncStatsLock.Lock()	//给同步状态锁加写锁.
+	defer s.d.syncStatsLock.Unlock()	//函数结束后解除同步状态锁的写锁状态.
 
-	s.d.syncStatsState.pending = uint64(s.sched.Pending())
-	s.d.syncStatsState.processed += uint64(written)
-	s.d.syncStatsState.duplicate += uint64(duplicate)
-	s.d.syncStatsState.unexpected += uint64(unexpected)
+	s.d.syncStatsState.pending = uint64(s.sched.Pending())	//pending状态的state entry.
+	s.d.syncStatsState.processed += uint64(written)		//已经处理的state entry.
+	s.d.syncStatsState.duplicate += uint64(duplicate)		//下载了两次的state entry.
+	s.d.syncStatsState.unexpected += uint64(unexpected)	//不在请求之列的state entry.
 
+	//如果有pending之外状态的state entry,那么在用户日志中打印信息.
 	if written > 0 || duplicate > 0 || unexpected > 0 {
 		log.Info("Imported new state entries", "count", written, "elapsed", common.PrettyDuration(duration), "processed", s.d.syncStatsState.processed, "pending", s.d.syncStatsState.pending, "retry", len(s.tasks), "duplicate", s.d.syncStatsState.duplicate, "unexpected", s.d.syncStatsState.unexpected)
 	}

@@ -47,15 +47,15 @@ var (
 	MaxStateFetch   = 384 // Amount of node state values to allow fetching per request
 
 	MaxForkAncestry  = 3 * params.EpochDuration // Maximum chain reorganisation
-	rttMinEstimate   = 2 * time.Second          // Minimum round-trip time to target for download requests
-	rttMaxEstimate   = 20 * time.Second         // Maximum rount-trip time to target for download requests
+	rttMinEstimate   = 2 * time.Second          // Minimum round-trip time to target for download requests	下载请求最小周期.2s.
+	rttMaxEstimate   = 20 * time.Second         // Maximum rount-trip time to target for download requests	下载请求最大周期.20s.
 	rttMinConfidence = 0.1                      // Worse confidence factor in our estimated RTT value
-	ttlScaling       = 3                        // Constant scaling factor for RTT -> TTL conversion
-	ttlLimit         = time.Minute              // Maximum TTL allowance to prevent reaching crazy timeouts
+	ttlScaling       = 3                        // Constant scaling factor for RTT -> TTL conversion	rtt转换ttl的常量因子.
+	ttlLimit         = time.Minute              // Maximum TTL allowance to prevent reaching crazy timeouts	//最大的ttl是1分钟.
 
-	qosTuningPeers   = 5    // Number of peers to tune based on (best peers)
+	qosTuningPeers   = 5    // Number of peers to tune based on (best peers)	基于多少个节点来调制rtt值.
 	qosConfidenceCap = 10   // Number of peers above which not to modify RTT confidence
-	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value
+	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value	新的调制目标对旧值的影响.
 
 	maxQueuedHeaders  = 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
@@ -99,20 +99,20 @@ type Downloader struct {
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	queue   *queue   // Scheduler for selecting the hashes to download
-	peers   *peerSet // Set of active peers from which download can proceed
+	peers   *peerSet // Set of active peers from which download can proceed	//peers维护着一个与当前节点连接的所有peer的列表信息.
 	stateDB ethdb.Database
 
 	fsPivotLock  *types.Header // Pivot header on critical section entry (cannot change between retries)
 	fsPivotFails uint32        // Number of subsequent fast sync failures in the critical section
 
-	rttEstimate   uint64 // Round trip time to target for download requests
-	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)
+	rttEstimate   uint64 // Round trip time to target for download requests	下载请求的rtt估值.
+	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)	//rtt估值的可信度.
 
 	// Statistics
 	syncStatsChainOrigin uint64 // Origin block number where syncing started at
 	syncStatsChainHeight uint64 // Highest block number known when syncing started
-	syncStatsState       stateSyncStats
-	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields
+	syncStatsState       stateSyncStats		//state同步状态,只用于在用户日志中展示.
+	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields		同步状态锁.
 
 	lightchain LightChain
 	blockchain BlockChain
@@ -134,9 +134,9 @@ type Downloader struct {
 	headerProcCh  chan []*types.Header // [eth/62] Channel to feed the header processor new tasks
 
 	// for stateFetcher
-	stateSyncStart chan *stateSync
+	stateSyncStart chan *stateSync		//状态同步开始消息通道.
 	trackStateReq  chan *stateReq
-	stateCh        chan dataPack // [eth/63] Channel receiving inbound node state data
+	stateCh        chan dataPack // [eth/63] Channel receiving inbound node state data	节点状态数据通道.
 
 	// Cancellation and termination
 	cancelPeer string        // Identifier of the peer currently being used as the master (cancel on drop)
@@ -213,8 +213,8 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		mux:            mux,
 		queue:          newQueue(),
 		peers:          newPeerSet(),
-		rttEstimate:    uint64(rttMaxEstimate),
-		rttConfidence:  uint64(1000000),
+		rttEstimate:    uint64(rttMaxEstimate),		//开始创建的时候,rtt估值为最大值,20秒,后期会周期性更新.
+		rttConfidence:  uint64(1000000),			//开始的时候估值可信度设置为最大值1000000,后期会周期性更新.
 		blockchain:     chain,
 		lightchain:     lightchain,
 		dropPeer:       dropPeer,
@@ -229,7 +229,7 @@ func New(mode SyncMode, stateDb ethdb.Database, mux *event.TypeMux, chain BlockC
 		stateSyncStart: make(chan *stateSync),
 		trackStateReq:  make(chan *stateReq),
 	}
-	go dl.qosTuner()
+	go dl.qosTuner()	//启动一个协程专门用来根据peer延迟时间周期性更新qos参数,rttEstimate和rttConfidence.
 	go dl.stateFetcher()
 	return dl
 }
@@ -1517,12 +1517,16 @@ func (d *Downloader) deliver(id string, destCh chan dataPack, packet dataPack, i
 
 // qosTuner is the quality of service tuning loop that occasionally gathers the
 // peer latency statistics and updates the estimated request round trip time.
+//qosTurner()函数周期性的统计peer的延迟时间,然后更新qos参数.
+//更新的两个参数为: rttEstimate:rtt估计值,rttConfidence:估计值的可信度.
 func (d *Downloader) qosTuner() {
 	for {
+		//设置下载请求的rtt估值字段rttEstimate.
 		// Retrieve the current median RTT and integrate into the previoust target RTT
 		rtt := time.Duration(float64(1-qosTuningImpact)*float64(atomic.LoadUint64(&d.rttEstimate)) + qosTuningImpact*float64(d.peers.medianRTT()))
 		atomic.StoreUint64(&d.rttEstimate, uint64(rtt))
 
+		//设置rtt估值的可信度.
 		// A new RTT cycle passed, increase our confidence in the estimated RTT
 		conf := atomic.LoadUint64(&d.rttConfidence)
 		conf = conf + (1000000-conf)/2
@@ -1572,20 +1576,23 @@ func (d *Downloader) qosReduceConfidence() {
 // Note, the returned RTT is .9 of the actually estimated RTT. The reason is that
 // the downloader tries to adapt queries to the RTT, so multiple RTT values can
 // be adapted to, but smaller ones are preffered (stabler download stream).
+//返回请求的目标RTT.
 func (d *Downloader) requestRTT() time.Duration {
-	return time.Duration(atomic.LoadUint64(&d.rttEstimate)) * 9 / 10
+	return time.Duration(atomic.LoadUint64(&d.rttEstimate)) * 9 / 10	//返回目标请求RTT,是RTT估计值的十分之九.
 }
 
 // requestTTL returns the current timeout allowance for a single download request
 // to finish under.
+//获得请求超时时间.
 func (d *Downloader) requestTTL() time.Duration {
 	var (
-		rtt  = time.Duration(atomic.LoadUint64(&d.rttEstimate))
+		rtt  = time.Duration(atomic.LoadUint64(&d.rttEstimate))	//rtt: round-trip time,往返时间.ttl:time to live,生存时间值.
 		conf = float64(atomic.LoadUint64(&d.rttConfidence)) / 1000000.0
 	)
-	ttl := time.Duration(ttlScaling) * time.Duration(float64(rtt)/conf)
-	if ttl > ttlLimit {
+	//获得当前rtt和confidence.
+	ttl := time.Duration(ttlScaling) * time.Duration(float64(rtt)/conf)	//计算请求超时时间.
+	if ttl > ttlLimit {		//如果计算的ttl大于1分钟,那么设置为1分钟.
 		ttl = ttlLimit
 	}
-	return ttl
+	return ttl	//返回计算出来的ttl.
 }

@@ -68,7 +68,7 @@ type ProtocolManager struct {
 	networkId uint64	//网络id.
 
 	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
-	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing) //是否可以接收及处理消息的标志.
+	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing) //是否可以接收及处理交易的标志.是否已经完成了同步的标志.
 
 	txpool      txPool
 	blockchain  *core.BlockChain
@@ -179,44 +179,51 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 	//构造downloader.
 	manager.downloader = downloader.New(mode, chaindb, manager.eventMux, blockchain, nil, manager.removePeer)
 
+	//块头验证函数.
 	validator := func(header *types.Header) error {
-		return engine.VerifyHeader(blockchain, header, true)
+		return engine.VerifyHeader(blockchain, header, true)	//调用共识算法中的verifyHeader函数.
 	}
+
+	//获得区块链高度的函数.
 	heighter := func() uint64 {
 		return blockchain.CurrentBlock().NumberU64()
 	}
+
+	//插入多个块到链上的函数.
 	inserter := func(blocks types.Blocks) (int, error) {
 		// If fast sync is running, deny importing weird blocks
 		//如果当前的模式是fastsync模式,那么对于其他Node广播过来的块直接丢弃,不允许插入到链上.(在ibft第一次启动挖矿的时候日志中会打印这个问题.)
-		if atomic.LoadUint32(&manager.fastSync) == 1 {
-			log.Warn("Discarded bad propagated block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
+		if atomic.LoadUint32(&manager.fastSync) == 1 {	//处在fastSync模式的时候不允许插入块.
+			log.Warn("Discarded bad propagated(蔓延) block", "number", blocks[0].Number(), "hash", blocks[0].Hash())
 			return 0, nil
 		}
-		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import
-		return manager.blockchain.InsertChain(blocks)
+		atomic.StoreUint32(&manager.acceptTxs, 1) // Mark initial sync done on any fetcher import 在fetcher导入块之前首先把同步标志设置为完成.
+		return manager.blockchain.InsertChain(blocks)	//把块插入到本地区块链上.
 	}
+
 	//构造fetcher.
 	manager.fetcher = fetcher.New(blockchain.GetBlockByHash, validator, manager.BroadcastBlock, heighter, inserter, manager.removePeer)
 
 	return manager, nil
 }
 
+//peer删除函数.
 func (pm *ProtocolManager) removePeer(id string) {
 	// Short circuit if the peer was already removed
-	peer := pm.peers.Peer(id)
+	peer := pm.peers.Peer(id) //获得peer对象.
 	if peer == nil {
 		return
 	}
 	log.Debug("Removing Wanchain peer", "peer", id)
 
 	// Unregister the peer from the downloader and Ethereum peer set
-	pm.downloader.UnregisterPeer(id)
+	pm.downloader.UnregisterPeer(id)	//解除注册peer.
 	if err := pm.peers.Unregister(id); err != nil {
 		log.Error("Peer removal failed", "peer", id, "err", err)
 	}
 	// Hard disconnect at the networking layer
 	if peer != nil {
-		peer.Peer.Disconnect(p2p.DiscUselessPeer)
+		peer.Peer.Disconnect(p2p.DiscUselessPeer)		//断开peer与本节点的p2p连接.
 	}
 }
 

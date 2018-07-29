@@ -54,16 +54,18 @@ type SyncResult struct {
 
 // syncMemBatch is an in-memory buffer of successfully downloaded but not yet
 // persisted data items.
+//syncMemBatch存储已经下载成功但是还没有持久化的数据.
 type syncMemBatch struct {
-	batch map[common.Hash][]byte // In-memory membatch of recently completed items
-	order []common.Hash          // Order of completion to prevent out-of-order data loss
+	batch map[common.Hash][]byte // In-memory membatch of recently completed items	存储最近下载成功但是还没有持久化的项目.
+	order []common.Hash          // Order of completion to prevent out-of-order data loss	数据的完成顺序,为了防止失序数据丢失.
 }
 
+//为下载成功但是还没有写入数据库的trie node创建一个内存缓存.
 // newSyncMemBatch allocates a new memory-buffer for not-yet persisted trie nodes.
 func newSyncMemBatch() *syncMemBatch {
 	return &syncMemBatch{
-		batch: make(map[common.Hash][]byte),
-		order: make([]common.Hash, 0, 256),
+		batch: make(map[common.Hash][]byte),	//hash -> []byte
+		order: make([]common.Hash, 0, 256),		//hash数组.
 	}
 }
 
@@ -75,10 +77,11 @@ type TrieSyncLeafCallback func(leaf []byte, parent common.Hash) error
 // TrieSync is the main state trie synchronisation scheduler, which provides yet
 // unknown trie hashes to retrieve, accepts node data associated with said hashes
 // and reconstructs the trie step by step until all is done.
+//TrieSync是一个状态树同步调度器.
 type TrieSync struct {
 	database DatabaseReader           // Persistent database to check for existing entries
 	membatch *syncMemBatch            // Memory buffer to avoid frequest database writes
-	requests map[common.Hash]*request // Pending requests pertaining to a key hash
+	requests map[common.Hash]*request // Pending requests pertaining to a key hash	存储pending的同步请求.
 	queue    *prque.Prque             // Priority queue with the pending requests
 }
 
@@ -216,24 +219,28 @@ func (s *TrieSync) Process(results []SyncResult) (bool, int, error) {
 }
 
 // Commit flushes the data stored in the internal membatch out to persistent
-// storage, returning th enumber of items written and any occurred error.
+// storage, returning the number of items written and any occurred error.
+// commit把已经下载成功但是还没有写入数据库的项目全部写入到数据库.
+//dbw:一个数据库写入对象.
 func (s *TrieSync) Commit(dbw DatabaseWriter) (int, error) {
 	// Dump the membatch into a database dbw
-	for i, key := range s.membatch.order {
+	//把所有已经下载尚未写入的数据写入到数据库中.
+	for i, key := range s.membatch.order {		//处理所有已经下载成功但是还没有写入数据库的数据.
 		if err := dbw.Put(key[:], s.membatch.batch[key]); err != nil {
 			return i, err
 		}
 	}
-	written := len(s.membatch.order)
+	written := len(s.membatch.order)	//所有数据都成功写入之后获得写入数据条目.
 
 	// Drop the membatch data and return
-	s.membatch = newSyncMemBatch()
-	return written, nil
+	s.membatch = newSyncMemBatch()	//丢弃原来的membatch,重新创建一个新的membatch.
+	return written, nil	//返回成功写入数据库的条目数及错误信息.
 }
 
 // Pending returns the number of state entries currently pending for download.
+// 返回pending状态的同步请求数量.
 func (s *TrieSync) Pending() int {
-	return len(s.requests)
+	return len(s.requests)	//返回pending的请求长度.
 }
 
 // schedule inserts a new state retrieval request into the fetch queue. If there

@@ -555,6 +555,7 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 }
 
 // GetBlockByHash retrieves a block from the database by hash, caching it if found.
+//根据hash在数据库中查找对应的块.
 func (bc *BlockChain) GetBlockByHash(hash common.Hash) *types.Block {
 	return bc.GetBlock(hash, bc.hc.GetBlockNumber(hash))
 }

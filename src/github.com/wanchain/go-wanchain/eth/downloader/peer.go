@@ -313,6 +313,7 @@ func (p *peerConnection) ReceiptCapacity(targetRTT time.Duration) int {
 
 // NodeDataCapacity retrieves the peers state download allowance based on its
 // previously discovered throughput.
+//返回节点的状态数据下载吞吐率.
 func (p *peerConnection) NodeDataCapacity(targetRTT time.Duration) int {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -550,31 +551,36 @@ func (ps *peerSet) idlePeers(minProtocol, maxProtocol int, idleCheck func(*peerC
 
 // medianRTT returns the median RTT of te peerset, considering only the tuning
 // peers if there are more peers available.
+//根据peerset中各peer的rtt来计算rtt中间值.
 func (ps *peerSet) medianRTT() time.Duration {
 	// Gather all the currnetly measured round trip times
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+	ps.lock.RLock() //peerset加读锁.
+	defer ps.lock.RUnlock()	//在函数退出的时候解除peerset的读锁.
 
-	rtts := make([]float64, 0, len(ps.peers))
-	for _, p := range ps.peers {
-		p.lock.RLock()
-		rtts = append(rtts, float64(p.rtt))
-		p.lock.RUnlock()
+	rtts := make([]float64, 0, len(ps.peers))	//rtts是存储peerset中每个peer的rtt的数组.
+	for _, p := range ps.peers {	//遍历peerset中的每个peer.
+		p.lock.RLock()	//peer加读锁.
+		rtts = append(rtts, float64(p.rtt))		//读取peer的rtt并添加到rtts数组中.
+		p.lock.RUnlock()	//peer解除读锁.
 	}
-	sort.Float64s(rtts)
+	sort.Float64s(rtts)	//对rtts中各peer的rtt进行排序.(对浮点数从小到大排序.)
 
-	median := rttMaxEstimate
-	if qosTuningPeers <= len(rtts) {
+	//最多选取从小到大排序后的前五个peer计算中间值.
+	median := rttMaxEstimate	//rtt值初始化为最大值20s.
+	if qosTuningPeers <= len(rtts) {	//如果当前节点数大于等于5,那么选取rtts[2]的值作为median rtt.
 		median = time.Duration(rtts[qosTuningPeers/2]) // Median of our tuning peers
-	} else if len(rtts) > 0 {
+	} else if len(rtts) > 0 {	//如果当前有peer,但是peer的数量小于5,则使用当前处于中间的peer的rtt值.
 		median = time.Duration(rtts[len(rtts)/2]) // Median of our connected peers (maintain even like this some baseline qos)
 	}
+
+	//如果计算出来的median小于最小值,那么设置为最小值.
 	// Restrict the RTT into some QoS defaults, irrelevant of true RTT
 	if median < rttMinEstimate {
 		median = rttMinEstimate
 	}
+	//如果计算出来的mdian大于最大值,那么设置为最大值.
 	if median > rttMaxEstimate {
 		median = rttMaxEstimate
 	}
-	return median
+	return median	//返回计算出来的Median.
 }
