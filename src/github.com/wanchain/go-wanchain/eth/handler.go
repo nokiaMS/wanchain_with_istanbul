@@ -67,7 +67,7 @@ func errResp(code errCode, format string, v ...interface{}) error {
 type ProtocolManager struct {
 	networkId uint64	//网络id.
 
-	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)
+	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)	//是否允许fastSync的开关.
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing) //是否可以接收及处理交易的标志.是否已经完成了同步的标志.
 
 	txpool      txPool

@@ -166,23 +166,25 @@ func (pm *ProtocolManager) syncer() {
 //本地链与peer同步。
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
-	if peer == nil {
+	if peer == nil {	//没有Peer可用则返回.
 		return
 	}
 	// Make sure the peer's TD is higher than our own
-	currentBlock := pm.blockchain.CurrentBlock()
-	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
+	currentBlock := pm.blockchain.CurrentBlock()	//获得当前块.
+	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())	//从当前块中获得total difficulty.
 
-	pHead, pTd := peer.Head()
-	if pTd.Cmp(td) <= 0 {
+	pHead, pTd := peer.Head()	//获得peer的head块指针及total difficulty.
+	if pTd.Cmp(td) <= 0 {	//如果peer的td比本节点的td还小,说明本节点的链是最新的,不需要从peer同步.
 		return
 	}
+
+	//首先选择同步模式,是fullSync mode还是fastSync mode.
 	// Otherwise try to sync with the downloader
-	mode := downloader.FullSync
+	mode := downloader.FullSync	//默认同步模式设置为fullSync.
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		// Fast sync was explicitly requested, and explicitly granted
-		mode = downloader.FastSync
-	} else if currentBlock.NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {
+		mode = downloader.FastSync		//如果允许fastSync,那么mode设置为fastSync.
+	} else if currentBlock.NumberU64() == 0 && pm.blockchain.CurrentFastBlock().NumberU64() > 0 {		//如果当前本地链只有创世块并且fast block缓存的块号大于0,那么设置同步模式为fastSync模式.
 		// The database seems empty as the current block is the genesis. Yet the fast
 		// block is ahead, so fast sync was enabled for this node at a certain point.
 		// The only scenario where this can happen is if the user manually (or via a
@@ -192,7 +194,8 @@ func (pm *ProtocolManager) synchronise(peer *peer) {
 		mode = downloader.FastSync
 	}
 	// Run the sync cycle, and disable fast sync if we've went past the pivot block
-	err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode)
+	//调用downloader对象开始同步过程.
+	err := pm.downloader.Synchronise(peer.id, pHead, pTd, mode)	//调用downloader对象开始同步.
 
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
 		// Disable fast sync if we indeed have something in our chain

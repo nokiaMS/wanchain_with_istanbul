@@ -21,10 +21,11 @@ import "fmt"
 // SyncMode represents the synchronisation mode of the downloader.
 type SyncMode int
 
+//三种链同步方式.
 const (
-	FullSync  SyncMode = iota // Synchronise the entire blockchain history from full blocks
-	FastSync                  // Quickly download the headers, full sync only at the chain head  //默认为FastSync.
-	LightSync                 // Download only the headers and terminate afterwards
+	FullSync  SyncMode = iota // Synchronise the entire blockchain history from full blocks	//同步整个链历史.
+	FastSync                  // Quickly download the headers, full sync only at the chain head  //默认为FastSync.	fastSync只下载headers,然后只在chain head块进行fullSync.
+	LightSync                 // Download only the headers and terminate afterwards	只是下载headers.
 )
 
 func (mode SyncMode) IsValid() bool {

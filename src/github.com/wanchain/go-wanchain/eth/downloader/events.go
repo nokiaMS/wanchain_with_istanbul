@@ -17,6 +17,6 @@
 package downloader
 
 //空结构体通常作为消息在通道中传递.
-type DoneEvent struct{}	//downloader DoneEvent消息
-type StartEvent struct{}	//downloader StartEvent消息
-type FailedEvent struct{ Err error }	//downloader FailedEvent消息
+type DoneEvent struct{}	//downloader DoneEvent消息, downloader与peer同步结束.
+type StartEvent struct{}	//downloader StartEvent消息	,downloader开始与peer同步的时候会发送这个消息.
+type FailedEvent struct{ Err error }	//downloader FailedEvent消息, downloader与peer同步失败.

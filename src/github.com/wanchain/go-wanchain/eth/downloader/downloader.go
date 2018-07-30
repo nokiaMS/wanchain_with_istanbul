@@ -40,7 +40,7 @@ import (
 var (
 	MaxHashFetch    = 512 // Amount of hashes to be fetched per retrieval request
 	MaxBlockFetch   = 128 // Amount of blocks to be fetched per retrieval request
-	MaxHeaderFetch  = 192 // Amount of block headers to be fetched per retrieval request
+	MaxHeaderFetch  = 192 // Amount of block headers to be fetched per retrieval request	每次请求获得的最多的header数量.
 	MaxSkeletonSize = 128 // Number of header fetches to need for a skeleton assembly
 	MaxBodyFetch    = 128 // Amount of block bodies to be fetched per retrieval request
 	MaxReceiptFetch = 256 // Amount of transaction receipts to allow fetching per request
@@ -65,8 +65,8 @@ var (
 	fsHeaderSafetyNet      = 2048       // Number of headers to discard in case a chain violation is detected
 	fsHeaderForceVerify    = 24         // Number of headers to verify before and after the pivot to accept it
 	fsPivotInterval        = 256        // Number of headers out of which to randomize the pivot point
-	fsMinFullBlocks        = 64         // Number of blocks to retrieve fully even in fast sync
-	fsCriticalTrials       = uint32(32) // Number of times to retry in the cricical section before bailing
+	fsMinFullBlocks        = 64         // Number of blocks to retrieve fully even in fast sync	//即使在fastSync模式也是需要部分块进行fullSync同步的.此值是需要进行fullSync的块的最少数量.
+	fsCriticalTrials       = uint32(32) // Number of times to retry in the cricical section before bailing	//fastSync同步失败最大尝试次数,超过此次数后转换为fullSync.
 )
 
 var (
@@ -98,19 +98,19 @@ type Downloader struct {
 	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
-	queue   *queue   // Scheduler for selecting the hashes to download
+	queue   *queue   // Scheduler for selecting the hashes to download			//能够下载的块hash列表.
 	peers   *peerSet // Set of active peers from which download can proceed	//peers维护着一个与当前节点连接的所有peer的列表信息.
 	stateDB ethdb.Database
 
-	fsPivotLock  *types.Header // Pivot header on critical section entry (cannot change between retries)
-	fsPivotFails uint32        // Number of subsequent fast sync failures in the critical section
+	fsPivotLock  *types.Header // Pivot header on critical section entry (cannot change between retries)	//fastSync的中轴,小于中轴的块用fastSync模式,大于中轴的块用fullSync模式.
+	fsPivotFails uint32        // Number of subsequent fast sync failures in the critical section	//fastSync失败次数.
 
 	rttEstimate   uint64 // Round trip time to target for download requests	下载请求的rtt估值.
 	rttConfidence uint64 // Confidence in the estimated RTT (unit: millionths to allow atomic ops)	//rtt估值的可信度.
 
 	// Statistics
-	syncStatsChainOrigin uint64 // Origin block number where syncing started at
-	syncStatsChainHeight uint64 // Highest block number known when syncing started
+	syncStatsChainOrigin uint64 // Origin block number where syncing started at		同步开始的时候所处的块编号.
+	syncStatsChainHeight uint64 // Highest block number known when syncing started		已知的最大块编号,即需要同步到的块编号.
 	syncStatsState       stateSyncStats		//state同步状态,只用于在用户日志中展示.
 	syncStatsLock        sync.RWMutex // Lock protecting the sync stats fields		同步状态锁.
 
@@ -121,17 +121,17 @@ type Downloader struct {
 	dropPeer peerDropFn // Drops a peer for misbehaving
 
 	// Status
-	synchroniseMock func(id string, hash common.Hash) error // Replacement for synchronise during testing
-	synchronising   int32
-	notified        int32
+	synchroniseMock func(id string, hash common.Hash) error // Replacement for synchronise during testing		//用于测试的函数.
+	synchronising   int32	//是否正在执行同步的标志.
+	notified        int32	//给用户发出通知(即在日志中打印.)
 
-	// Channels
-	headerCh      chan dataPack        // [eth/62] Channel receiving inbound block headers
-	bodyCh        chan dataPack        // [eth/62] Channel receiving inbound block bodies
-	receiptCh     chan dataPack        // [eth/63] Channel receiving inbound receipts
-	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks
-	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks
-	headerProcCh  chan []*types.Header // [eth/62] Channel to feed the header processor new tasks
+	// Channels	几个channel用来接收外部事件.
+	headerCh      chan dataPack        // [eth/62] Channel receiving inbound block headers	收到header,存储于此.
+	bodyCh        chan dataPack        // [eth/62] Channel receiving inbound block bodies		收到body,存储于此.
+	receiptCh     chan dataPack        // [eth/63] Channel receiving inbound receipts			收到receipt,存储于此.
+	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks	body到来消息.
+	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks		receipt到来消息.
+	headerProcCh  chan []*types.Header // [eth/62] Channel to feed the header processor new tasks		header到来消息.
 
 	// for stateFetcher
 	stateSyncStart chan *stateSync		//状态同步开始消息通道.
@@ -139,14 +139,14 @@ type Downloader struct {
 	stateCh        chan dataPack // [eth/63] Channel receiving inbound node state data	节点状态数据通道.
 
 	// Cancellation and termination
-	cancelPeer string        // Identifier of the peer currently being used as the master (cancel on drop)
-	cancelCh   chan struct{} // Channel to cancel mid-flight syncs
-	cancelLock sync.RWMutex  // Lock to protect the cancel channel and peer in delivers
+	cancelPeer string        // Identifier of the peer currently being used as the master (cancel on drop)	//要取消的与哪个peer之间的同步.
+	cancelCh   chan struct{} // Channel to cancel mid-flight syncs	//取消消息通道,用于取消正在进行的同步操作.
+	cancelLock sync.RWMutex  // Lock to protect the cancel channel and peer in delivers	//取消操作锁.
 
 	quitCh   chan struct{} // Quit channel to signal termination	退出信号通道.
 	quitLock sync.RWMutex  // Lock to prevent double closes
 
-	// Testing hooks
+	// Testing hooks	以下4个为测试hook点.
 	syncInitHook     func(uint64, uint64)  // Method to call upon initiating a new sync run
 	bodyFetchHook    func([]*types.Header) // Method to call upon starting a block body fetch
 	receiptFetchHook func([]*types.Header) // Method to call upon starting a receipt fetch
@@ -315,8 +315,14 @@ func (d *Downloader) UnregisterPeer(id string) error {
 
 // Synchronise tries to sync up our local block chain with a remote peer, both
 // adding various sanity checks as well as wrapping it with various log entries.
+//开始同步过程.
+//id: peer id.
+//head: peer head.
+//td: peer total difficulty.
+//mode: 同步模式.
+//(Synchronize内部调用了synchronize函数,这种方法比较好,可以尝试.)
 func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode SyncMode) error {
-	err := d.synchronise(id, head, td, mode)
+	err := d.synchronise(id, head, td, mode)	//传递进来的参数是peer id, peer head, peer total difficulty及同步模式.
 	switch err {
 	case nil:
 	case errBusy:
@@ -336,31 +342,38 @@ func (d *Downloader) Synchronise(id string, head common.Hash, td *big.Int, mode 
 // synchronise will select the peer and use it for synchronising. If an empty string is given
 // it will use the best peer possible and synchronize if it's TD is higher than our own. If any of the
 // checks fail an error will be returned. This method is synchronous
+//synchronize是一个同步调用的方法.用来进行本地节点与peer之间的同步.
+//id: peer id.
+//hash: peer head hash.
+//td: total difficulty.
+//mode: sync mode.
 func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode SyncMode) error {
 	// Mock out the synchronisation if testing
-	if d.synchroniseMock != nil {
+	if d.synchroniseMock != nil {	//如果此函数指针不为空(及在测试场景下),那么执行这个mock函数,这个mock只是在测试的时候会被使用,在实际运行中不会被使用到.
 		return d.synchroniseMock(id, hash)
 	}
 	// Make sure only one goroutine is ever allowed past this point at once
-	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {
+	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {	//保证同一时间只有一个synchronize在执行.此原子操作首先比较synchronising的值,如果为0,则替换成1,返回true; 如果不为0,返回false.
 		return errBusy
 	}
-	defer atomic.StoreInt32(&d.synchronising, 0)
+	defer atomic.StoreInt32(&d.synchronising, 0)	//在函数结束的时候设置synchronising标志为0. (为0表示没有正在进行同步,为1表示正在进行同步.)
 
 	// Post a user notification of the sync (only once per session)
 	if atomic.CompareAndSwapInt32(&d.notified, 0, 1) {
 		log.Info("Block synchronisation started")
 	}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
-	d.queue.Reset()
-	d.peers.Reset()
+	d.queue.Reset()	//重置queue队列,queue里存储着能够下载blocks的hash列表.
+	d.peers.Reset()	//重置peers队列,peers里存储着能够与之进行同步的peer列表.
 
-	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
+	//在同步的过程中不响应bodyWakeCh和receiptWakeCh事件.
+	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {	//监听bodyWakeCh和receiptWakeCh事件,处理方法是不响应这两类事件.
 		select {
 		case <-ch:
 		default:
 		}
 	}
+	//在执行同步之前,首先查看队列headerCh,bodyCh,receiptCh中是否还有未处理的数据,如果有那么全部清空,清空这三个通道之后,再进行后续的处理.
 	for _, ch := range []chan dataPack{d.headerCh, d.bodyCh, d.receiptCh} {
 		for empty := false; !empty; {
 			select {
@@ -370,6 +383,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 			}
 		}
 	}
+	//清空headerProcCh中的现有数据.
 	for empty := false; !empty; {
 		select {
 		case <-d.headerProcCh:
@@ -378,82 +392,90 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 		}
 	}
 	// Create cancel channel for aborting mid-flight and mark the master peer
+	//创建取消消息通道,并标记此通道属于与哪个peer的连接.
 	d.cancelLock.Lock()
 	d.cancelCh = make(chan struct{})
 	d.cancelPeer = id
 	d.cancelLock.Unlock()
-
+	//同步操作结束之后销毁取消消息通道.
 	defer d.Cancel() // No matter what, we can't leave the cancel channel open
 
 	// Set the requested sync mode, unless it's forbidden
+	//设置同步模式.
 	d.mode = mode
 	if d.mode == FastSync && atomic.LoadUint32(&d.fsPivotFails) >= fsCriticalTrials {
 		d.mode = FullSync
 	}
 	// Retrieve the origin peer and initiate the downloading process
-	p := d.peers.Peer(id)
+	p := d.peers.Peer(id)	//从peer id获得peer对象.
 	if p == nil {
 		return errUnknownPeer
 	}
 
-	return d.syncWithPeer(p, hash, td)
+	return d.syncWithPeer(p, hash, td)		//与peer进行同步, p:peer对象;hash:需要同步的块hash;td:total difficulty.
 }
 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
+//与peer同步,hash:block hash, td:total difficulty.
 func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.Int) (err error) {
-	d.mux.Post(StartEvent{})
-	defer func() {
-		// reset on error
+	d.mux.Post(StartEvent{})	//发出StartEvent事件,此事件一共有两个对象订阅,一个是miner,一个是downloader对象本身, miner在收到这个事件的时候判断其是否正在挖矿,如果正在挖矿则停止挖矿.
+	defer func() {	//在函数退出的时候调用此函数.
+		// reset on error 同步完成之后判断同步是否成功,如果成功发出DoneEvent事件,如果失败发出FailedEvent事件.
 		if err != nil {
 			d.mux.Post(FailedEvent{err})
 		} else {
 			d.mux.Post(DoneEvent{})
 		}
 	}()
-	if p.version < 62 {
+	if p.version < 62 {		//peer版本太低,返回错误.
 		return errTooOld
 	}
 
 	log.Debug("Synchronising with the network", "peer", p.id, "eth", p.version, "head", hash, "td", td, "mode", d.mode)
-	defer func(start time.Time) {
+	defer func(start time.Time) {	//函数结束的时候执行此函数.
 		log.Debug("Synchronisation terminated", "elapsed", time.Since(start))
-	}(time.Now())
+	}(time.Now())	//time.Now()在此处就已经被计算了,而不是在该函数执行的时候被计算的.
 
+	//查找需要同步的边界,从哪个块开始及到哪个块结束.
 	// Look up the sync boundaries: the common ancestor and the target block
-	latest, err := d.fetchHeight(p)
+	latest, err := d.fetchHeight(p)		//获得peer的最新块的指针.
 	if err != nil {
 		return err
 	}
-	height := latest.Number.Uint64()
+	height := latest.Number.Uint64()	//获得peer的块高度.
 
-	origin, err := d.findAncestor(p, height)
+	origin, err := d.findAncestor(p, height)	//找到本地链与peer链的公共祖先,即需要从哪个块开始同步.
 	if err != nil {
 		return err
 	}
-	d.syncStatsLock.Lock()
+	//加锁并更新从开始块编号及结束块编号.
+	d.syncStatsLock.Lock()	//给同步状态加锁.
 	if d.syncStatsChainHeight <= origin || d.syncStatsChainOrigin > origin {
 		d.syncStatsChainOrigin = origin
 	}
 	d.syncStatsChainHeight = height
-	d.syncStatsLock.Unlock()
+	d.syncStatsLock.Unlock()	//给同步状态解锁.
 
 	// Initiate the sync using a concurrent header and content retrieval algorithm
-	pivot := uint64(0)
+	//使用并发的header及content获取算法来初始化同步机制.
+	//根据同步模式计算中轴点,小于中轴点的块用fast模式同步,大于中轴点的块用full模式同步.
+	pivot := uint64(0)	//pivot:中心点.
 	switch d.mode {
-	case LightSync:
-		pivot = height
-	case FastSync:
-		// Calculate the new fast/slow sync pivot point
-		if d.fsPivotLock == nil {
-			pivotOffset, err := rand.Int(rand.Reader, big.NewInt(int64(fsPivotInterval)))
+	case LightSync:	//轻节点模式.
+		pivot = height	//中心点等于peer的最新块的高度.	(lightSync:同步的时候所有块都用fast模式进行同步; fastSync:pivot左侧块用fast方式同步,右侧块用full方式同步.)
+	case FastSync:		//fastSync模式.
+		// Calculate the new fast/slow sync pivot point	计算快速/慢速同步时候的中心点.小于中心点的块用fastSync,大于中心点的块用fullSync模式进行同步.
+		if d.fsPivotLock == nil {	//fs中轴锁非空.
+			pivotOffset, err := rand.Int(rand.Reader, big.NewInt(int64(fsPivotInterval)))	//计算fs中轴偏移.
 			if err != nil {
 				panic(fmt.Sprintf("Failed to access crypto random source: %v", err))
 			}
+			//计算中轴.
 			if height > uint64(fsMinFullBlocks)+pivotOffset.Uint64() {
 				pivot = height - uint64(fsMinFullBlocks) - pivotOffset.Uint64()
 			}
-		} else {
+		} else {	//中轴锁不为空则使用当前的中轴锁中header的值.
 			// Pivot point locked in, use this and do not pick a new one!
 			pivot = d.fsPivotLock.Number.Uint64()
 		}
@@ -465,24 +487,29 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 				origin = 0
 			}
 		}
-		log.Debug("Fast syncing until pivot block", "pivot", pivot)
+		log.Debug("Fast syncing until pivot block", "pivot", pivot)	//从此处打印可以看出来,小于pivot的块用fastsync模式,大于pivot的块用full sync模式.
 	}
-	d.queue.Prepare(origin+1, d.mode, pivot, latest)
-	if d.syncInitHook != nil {
+
+	d.queue.Prepare(origin+1, d.mode, pivot, latest)	//第一个还没有同步的块, 同步模式, 中轴点, 最新块的指针.
+	if d.syncInitHook != nil {	//此为测试hook.
 		d.syncInitHook(origin, height)
 	}
 
+	//同步动作数组.
 	fetchers := []func() error{
-		func() error { return d.fetchHeaders(p, origin+1) }, // Headers are always retrieved
+		func() error { return d.fetchHeaders(p, origin+1) }, // Headers are always retrieved	同步的时候headers总是需要获取的. p: peer指针,origin+1: 从最早的一个尚未同步的块开始同步.
 		func() error { return d.fetchBodies(origin + 1) },   // Bodies are retrieved during normal and fast sync
 		func() error { return d.fetchReceipts(origin + 1) }, // Receipts are retrieved during fast sync
 		func() error { return d.processHeaders(origin+1, td) },
 	}
+	//根据同步模式在动作数组中添加动作.
 	if d.mode == FastSync {
 		fetchers = append(fetchers, func() error { return d.processFastSyncContent(latest) })
 	} else if d.mode == FullSync {
 		fetchers = append(fetchers, d.processFullSyncContent)
 	}
+
+	//执行同步操作.
 	err = d.spawnSync(fetchers)
 	if err != nil && d.mode == FastSync && d.fsPivotLock != nil {
 		// If sync failed in the critical section, bump the fail counter.
@@ -493,10 +520,12 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 
 // spawnSync runs d.process and all given fetcher functions to completion in
 // separate goroutines, returning the first error that appears.
+//执行同步动作进行链同步.
 func (d *Downloader) spawnSync(fetchers []func() error) error {
-	var wg sync.WaitGroup
-	errc := make(chan error, len(fetchers))
-	wg.Add(len(fetchers))
+	var wg sync.WaitGroup	//定义WaitGroup.
+	errc := make(chan error, len(fetchers))	//错误消息通道.
+	wg.Add(len(fetchers))	//设置WaitGroup需要等待的协程数量.
+	//对每个动作都启动一个单独的协程进行处理.
 	for _, fn := range fetchers {
 		fn := fn
 		go func() { defer wg.Done(); errc <- fn() }()
@@ -504,19 +533,19 @@ func (d *Downloader) spawnSync(fetchers []func() error) error {
 	// Wait for the first error, then terminate the others.
 	var err error
 	for i := 0; i < len(fetchers); i++ {
-		if i == len(fetchers)-1 {
+		if i == len(fetchers)-1 {	//当所有fetchers都处理完成之后
 			// Close the queue when all fetchers have exited.
 			// This will cause the block processor to end when
 			// it has processed the queue.
-			d.queue.Close()
+			d.queue.Close()	//关闭queue队列.
 		}
-		if err = <-errc; err != nil {
+		if err = <-errc; err != nil {	//如果有任何一个协程返回错误,那么直接退出此循环.
 			break
 		}
 	}
-	d.queue.Close()
-	d.Cancel()
-	wg.Wait()
+	d.queue.Close()	//关闭queue队列.
+	d.Cancel()	//
+	wg.Wait()	//等待wg中的所有协程结束.
 	return err
 }
 
@@ -771,23 +800,30 @@ func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, err
 // other peers are only accepted if they map cleanly to the skeleton. If no one
 // can fill in the skeleton - not even the origin peer - it's assumed invalid and
 // the origin is dropped.
+// fetchHeaders用于同步headers.
+// p: peer连接.
+// from: 从哪一个块开始进行同步.
 func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
-	p.log.Debug("Directing header downloads", "origin", from)
-	defer p.log.Debug("Header download terminated")
+	p.log.Debug("Directing header downloads", "origin", from)	//最早的没有同步的块的header叫做directing header.
+	defer p.log.Debug("Header download terminated")	//程序结束的时候执行此函数.
 
 	// Create a timeout timer, and the associated header fetcher
 	skeleton := true            // Skeleton assembly phase or finishing up
 	request := time.Now()       // time of the last skeleton fetch request
+
+	//构造一个定时器.
 	timeout := time.NewTimer(0) // timer to dump a non-responsive active peer
 	<-timeout.C                 // timeout channel should be initially empty
 	defer timeout.Stop()
 
 	var ttl time.Duration
+
+	//定义一个匿名函数,用于获取headers.
 	getHeaders := func(from uint64) {
 		request = time.Now()
 
-		ttl = d.requestTTL()
-		timeout.Reset(ttl)
+		ttl = d.requestTTL()	//获得请求超时时间,ttl是根据以前的经验值计算出来的,会动态更新.
+		timeout.Reset(ttl)		//设置超时定时器.
 
 		if skeleton {
 			p.log.Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
@@ -798,7 +834,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 		}
 	}
 	// Start pulling the header chain skeleton until all is done
-	getHeaders(from)
+	getHeaders(from)	//获得header框架.
 
 	for {
 		select {

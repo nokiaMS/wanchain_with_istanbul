@@ -440,11 +440,12 @@ func (ps *peerSet) Unregister(id string) error {
 }
 
 // Peer retrieves the registered peer with the given id.
+//根据peer id获得peer对象.
 func (ps *peerSet) Peer(id string) *peerConnection {
-	ps.lock.RLock()
-	defer ps.lock.RUnlock()
+	ps.lock.RLock()	//加读锁.
+	defer ps.lock.RUnlock()	//解除读锁.
 
-	return ps.peers[id]
+	return ps.peers[id]	//返回id对应的peer对象.
 }
 
 // Len returns if the current number of peers in the set.
