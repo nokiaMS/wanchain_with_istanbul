@@ -52,8 +52,8 @@ const (
 	StatusMsg          = 0x00
 	NewBlockHashesMsg  = 0x01		//发送新产生的块的hash.
 	TxMsg              = 0x02		//广播新的交易给peer.
-	GetBlockHeadersMsg = 0x03
-	BlockHeadersMsg    = 0x04
+	GetBlockHeadersMsg = 0x03		//批量获取headers的消息.
+	BlockHeadersMsg    = 0x04		//返回批量headers查询结果.
 	GetBlockBodiesMsg  = 0x05
 	BlockBodiesMsg     = 0x06
 	NewBlockMsg        = 0x07		//发送新块的消息.
@@ -126,11 +126,12 @@ type newBlockHashesData []struct {
 }
 
 // getBlockHeadersData represents a block header query.
+//块头请求消息.
 type getBlockHeadersData struct {
-	Origin  hashOrNumber // Block from which to retrieve headers
-	Amount  uint64       // Maximum number of headers to retrieve
-	Skip    uint64       // Blocks to skip between consecutive headers
-	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)
+	Origin  hashOrNumber // Block from which to retrieve headers	从哪一个块开始获取块头.
+	Amount  uint64       // Maximum number of headers to retrieve	获取的最大的header数量.
+	Skip    uint64       // Blocks to skip between consecutive headers		连续块头之间跳过的块数.即间隔多少个块获取一个块头.
+	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)	是正序获得块头还是反序获得块头.
 }
 
 // hashOrNumber is a combined field for specifying an origin block.

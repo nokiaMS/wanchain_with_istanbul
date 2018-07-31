@@ -126,7 +126,7 @@ type Downloader struct {
 	notified        int32	//给用户发出通知(即在日志中打印.)
 
 	// Channels	几个channel用来接收外部事件.
-	headerCh      chan dataPack        // [eth/62] Channel receiving inbound block headers	收到header,存储于此.
+	headerCh      chan dataPack        // [eth/62] Channel receiving inbound block headers	从peer收到的header,存储于此.
 	bodyCh        chan dataPack        // [eth/62] Channel receiving inbound block bodies		收到body,存储于此.
 	receiptCh     chan dataPack        // [eth/63] Channel receiving inbound receipts			收到receipt,存储于此.
 	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks	body到来消息.
@@ -825,10 +825,11 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 		ttl = d.requestTTL()	//获得请求超时时间,ttl是根据以前的经验值计算出来的,会动态更新.
 		timeout.Reset(ttl)		//设置超时定时器.
 
-		if skeleton {
+		//获取块头信息.
+		if skeleton {	//如果采用框架形式获取块头则每间隔一定数量的块获取下一个块头.
 			p.log.Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
 			go p.peer.RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false)
-		} else {
+		} else {		//如果不采用框架形式,那么连续获取块头.
 			p.log.Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
 			go p.peer.RequestHeadersByNumber(from, MaxHeaderFetch, 0, false)
 		}
@@ -1508,6 +1509,7 @@ func (d *Downloader) commitPivotBlock(result *fetchResult) error {
 
 // DeliverHeaders injects a new batch of block headers received from a remote
 // node into the download schedule.
+//把peer传递过来的一堆headers注入到下载日程表中.(把收到的headers放入downloader的通道headerCh)
 func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err error) {
 	return d.deliver(id, d.headerCh, &headerPack{id, headers}, headerInMeter, headerDropMeter)
 }
@@ -1528,6 +1530,10 @@ func (d *Downloader) DeliverNodeData(id string, data [][]byte) (err error) {
 }
 
 // deliver injects a new batch of data received from a remote node.
+//deliver的作用就是把数据注入到指定的通道中.
+//id: peer id.
+//destCh: 目的通道,数据就是注入到这个通道.
+//packet: 注入到通道中的数据包.
 func (d *Downloader) deliver(id string, destCh chan dataPack, packet dataPack, inMeter, dropMeter metrics.Meter) (err error) {
 	// Update the delivery metrics for both good and failed deliveries
 	inMeter.Mark(int64(packet.Items()))
@@ -1544,7 +1550,7 @@ func (d *Downloader) deliver(id string, destCh chan dataPack, packet dataPack, i
 		return errNoSyncActive
 	}
 	select {
-	case destCh <- packet:
+	case destCh <- packet:	//把数据包注入到通道中.
 		return nil
 	case <-cancel:
 		return errNoSyncActive

@@ -372,13 +372,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		return errResp(ErrExtraStatusMsg, "uncontrolled status message")
 
 	// Block header query, collect the requested headers and reply
-	case msg.Code == GetBlockHeadersMsg:
+	case msg.Code == GetBlockHeadersMsg:		//响应peer发送过来的GetBlockHeadersMsg,获取结果并返回.
 		// Decode the complex header query
 		var query getBlockHeadersData
-		if err := msg.Decode(&query); err != nil {
+		if err := msg.Decode(&query); err != nil {	//从msg中解析出指定结构体.
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		hashMode := query.Origin.Hash != (common.Hash{})
+		hashMode := query.Origin.Hash != (common.Hash{})	//获得开始块的hash.
 
 		// Gather headers until the fetch or network limits is reached
 		var (
@@ -388,6 +388,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		)
 		for !unknown && len(headers) < int(query.Amount) && bytes < softResponseLimit && len(headers) < downloader.MaxHeaderFetch {
 			// Retrieve the next header satisfying the query
+			//获得开始块的hash.
 			var origin *types.Header
 			if hashMode {
 				origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
@@ -397,13 +398,13 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			if origin == nil {
 				break
 			}
-			number := origin.Number.Uint64()
-			headers = append(headers, origin)
-			bytes += estHeaderRlpSize
+			number := origin.Number.Uint64()	//获得初始块号.
+			headers = append(headers, origin)	//把第一个块添加到返回数组.
+			bytes += estHeaderRlpSize		//预估增加的字节数.
 
 			// Advance to the next header of the query
 			switch {
-			case query.Origin.Hash != (common.Hash{}) && query.Reverse:
+			case query.Origin.Hash != (common.Hash{}) && query.Reverse:	//基于hash的反向查找.
 				// Hash based traversal towards the genesis block
 				for i := 0; i < int(query.Skip)+1; i++ {
 					if header := pm.blockchain.GetHeader(query.Origin.Hash, number); header != nil {
@@ -448,12 +449,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				query.Origin.Number += (query.Skip + 1)
 			}
 		}
-		return p.SendBlockHeaders(headers)
+		return p.SendBlockHeaders(headers)		//发送给请求端获得到的headers列表信息.
 
-	case msg.Code == BlockHeadersMsg:
+	case msg.Code == BlockHeadersMsg:	//返回批量的headers查询结果,此结果是对之前的批量headers查询请求的响应.
 		// A batch of headers arrived to one of our previous requests
 		var headers []*types.Header
-		if err := msg.Decode(&headers); err != nil {
+		if err := msg.Decode(&headers); err != nil {	//解码消息,把返回的headers存储到局部变量headers数组中.
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 
@@ -499,7 +500,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 
 		if len(headers) > 0 || !filter {
-			err := pm.downloader.DeliverHeaders(p.id, headers)
+			err := pm.downloader.DeliverHeaders(p.id, headers)	//把收到的headers放入downloader的headerCh中.
 			if err != nil {
 				log.Debug("Failed to deliver headers", "err", err)
 			}

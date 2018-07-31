@@ -169,6 +169,7 @@ func (p *peer) SendNewBlock(block *types.Block, td *big.Int) error {
 }
 
 // SendBlockHeaders sends a batch of block headers to the remote peer.
+//发送一批headers给请求端.
 func (p *peer) SendBlockHeaders(headers []*types.Header) error {
 	return p2p.Send(p.rw, BlockHeadersMsg, headers)
 }
