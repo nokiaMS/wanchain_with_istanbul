@@ -54,9 +54,9 @@ type HeaderChain struct {
 	currentHeader     *types.Header // Current head of the header chain (may be above the block chain!)
 	currentHeaderHash common.Hash   // Hash of the current head of the header chain (prevent recomputing all the time)
 
-	headerCache *lru.Cache // Cache for the most recent block headers
-	tdCache     *lru.Cache // Cache for the most recent block total difficulties
-	numberCache *lru.Cache // Cache for the most recent block numbers
+	headerCache *lru.Cache // Cache for the most recent block headers             缓存最新块的header.
+	tdCache     *lru.Cache // Cache for the most recent block total difficulties	缓存最新块的td.
+	numberCache *lru.Cache // Cache for the most recent block numbers				缓存最新的块编号.
 
 	procInterrupt func() bool
 
@@ -307,20 +307,22 @@ func (hc *HeaderChain) GetBlockHashesFromHash(hash common.Hash, max uint64) []co
 	return chain
 }
 
-// GetTd retrieves a block's total difficulty in the canonical chain from the
+// GetTd retrieves a block's total difficulty in the canonical(权威的) chain from the
 // database by hash and number, caching it if found.
+//根据块hash和块编号获得块的td(total difficulty).
 func (hc *HeaderChain) GetTd(hash common.Hash, number uint64) *big.Int {
 	// Short circuit if the td's already in the cache, retrieve otherwise
-	if cached, ok := hc.tdCache.Get(hash); ok {
+	if cached, ok := hc.tdCache.Get(hash); ok {	//如果td在缓存中,那么直接获取td.
 		return cached.(*big.Int)
 	}
+	//缓存中没有td,则需要从数据库中查询.
 	td := GetTd(hc.chainDb, hash, number)
 	if td == nil {
 		return nil
 	}
 	// Cache the found body for next time and return
-	hc.tdCache.Add(hash, td)
-	return td
+	hc.tdCache.Add(hash, td)	//把查到的数据缓存到cache中,以备下次使用.
+	return td	//返回查询到的td.
 }
 
 // GetTdByHash retrieves a block's total difficulty in the canonical chain from the

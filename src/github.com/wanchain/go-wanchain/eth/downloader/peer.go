@@ -375,6 +375,7 @@ func (ps *peerSet) SubscribePeerDrops(ch chan<- *peerConnection) event.Subscript
 
 // Reset iterates over the current peer set, and resets each of the known peers
 // to prepare for a next batch of block retrieval.
+//重置peers数组中的所有peer,使得其准备用于下一批的块获取.
 func (ps *peerSet) Reset() {
 	ps.lock.RLock()
 	defer ps.lock.RUnlock()

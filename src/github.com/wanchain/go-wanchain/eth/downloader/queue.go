@@ -91,7 +91,7 @@ type queue struct {
 	resultOffset uint64         // Offset of the first cached fetch result in the block chain
 
 	lock   *sync.Mutex
-	active *sync.Cond
+	active *sync.Cond	//条件变量.
 	closed bool
 }
 
@@ -845,7 +845,7 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 	}
 	// Wake up WaitResults
 	if accepted > 0 {
-		q.active.Signal()
+		q.active.Signal()	//给等待这个锁的协程发送信号.
 	}
 	// If none of the data was good, it's a stale delivery
 	switch {

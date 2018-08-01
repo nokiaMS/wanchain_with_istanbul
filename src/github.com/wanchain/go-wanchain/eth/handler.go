@@ -67,7 +67,7 @@ func errResp(code errCode, format string, v ...interface{}) error {
 type ProtocolManager struct {
 	networkId uint64	//网络id.
 
-	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)	//是否允许fastSync的开关.
+	fastSync  uint32 // Flag whether fast sync is enabled (gets disabled if we already have blocks)	//是否使用fastSync方式进行同步.
 	acceptTxs uint32 // Flag whether we're considered synchronised (enables transaction processing) //是否可以接收及处理交易的标志.是否已经完成了同步的标志.
 
 	txpool      txPool
@@ -145,7 +145,7 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		}
 		// Compatible; initialise the sub-protocol
 		version := version // Closure for the run
-		//此处把共识算法自协议添加到了SubProtocols中.
+		//此处把共识算法子协议添加到了SubProtocols中.
 		manager.SubProtocols = append(manager.SubProtocols, p2p.Protocol{	//构造p2p子协议并填充到SubProtocols中.
 			Name:    protocol.Name,
 			Version: version,
@@ -339,6 +339,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 
 // handleMsg is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
+//handleMsg用来处理与peer之间的消息收发.
 //当peer发来消息的时候,handleMsg()函数就用来处理接收到的消息.
 //当node广播交易之后,与其相连的peer就是通过这个函数来获得交易并进行后续处理的.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
@@ -506,7 +507,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-	case msg.Code == GetBlockBodiesMsg:
+	case msg.Code == GetBlockBodiesMsg:	//收到并处理批量获取块body的请求并返回结果.
 		// Decode the retrieval message
 		msgStream := rlp.NewStream(msg.Payload, uint64(msg.Size))
 		if _, err := msgStream.List(); err != nil {
@@ -533,7 +534,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		}
 		return p.SendBlockBodiesRLP(bodies)
 
-	case msg.Code == BlockBodiesMsg:
+	case msg.Code == BlockBodiesMsg:	//处理peer节点发送过来的bodies.
 		// A batch of block bodies arrived to one of our previous requests
 		var request blockBodiesData
 		if err := msg.Decode(&request); err != nil {
@@ -543,6 +544,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		trasactions := make([][]*types.Transaction, len(request))
 		uncles := make([][]*types.Header, len(request))
 
+		//从收到的bodies里面获取交易及uncles.
 		for i, body := range request {
 			trasactions[i] = body.Transactions
 			uncles[i] = body.Uncles

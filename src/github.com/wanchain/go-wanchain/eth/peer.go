@@ -181,6 +181,7 @@ func (p *peer) SendBlockBodies(bodies []*blockBody) error {
 
 // SendBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
+//获取并返回块的bodies.
 func (p *peer) SendBlockBodiesRLP(bodies []rlp.RawValue) error {
 	return p2p.Send(p.rw, BlockBodiesMsg, bodies)
 }

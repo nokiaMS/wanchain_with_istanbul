@@ -122,7 +122,7 @@ type Downloader struct {
 
 	// Status
 	synchroniseMock func(id string, hash common.Hash) error // Replacement for synchronise during testing		//用于测试的函数.
-	synchronising   int32	//是否正在执行同步的标志.
+	synchronising   int32	//是否正在执行同步的标志,保证同一时间只有一个同步过程在执行.
 	notified        int32	//给用户发出通知(即在日志中打印.)
 
 	// Channels	几个channel用来接收外部事件.
@@ -354,6 +354,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	}
 	// Make sure only one goroutine is ever allowed past this point at once
 	if !atomic.CompareAndSwapInt32(&d.synchronising, 0, 1) {	//保证同一时间只有一个synchronize在执行.此原子操作首先比较synchronising的值,如果为0,则替换成1,返回true; 如果不为0,返回false.
+		//有两种情况会进入到这个位置,一个是同步定时器到期会触发,另外一个新节点加入且总节点数不小于5.此处的锁保证了同时只有一个同步过程在执行.
 		return errBusy
 	}
 	defer atomic.StoreInt32(&d.synchronising, 0)	//在函数结束的时候设置synchronising标志为0. (为0表示没有正在进行同步,为1表示正在进行同步.)
@@ -364,10 +365,10 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	}
 	// Reset the queue, peer set and wake channels to clean any internal leftover state
 	d.queue.Reset()	//重置queue队列,queue里存储着能够下载blocks的hash列表.
-	d.peers.Reset()	//重置peers队列,peers里存储着能够与之进行同步的peer列表.
+	d.peers.Reset()	//重置peers队列,peers里存储着能够与之进行同步的peer列表.(把peers中的每个peer进行reset,而不是把peer从peers中删除.)
 
-	//在同步的过程中不响应bodyWakeCh和receiptWakeCh事件.
-	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {	//监听bodyWakeCh和receiptWakeCh事件,处理方法是不响应这两类事件.
+	//清空队列bodyWakeCh和receiptWakeCh.
+	for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 		select {
 		case <-ch:
 		default:
@@ -418,6 +419,9 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 // syncWithPeer starts a block synchronization based on the hash chain from the
 // specified peer and head hash.
 //与peer同步,hash:block hash, td:total difficulty.
+//p: peer对象指针;
+//hash: peer的链头块hash.
+//td: total difficulty.
 func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.Int) (err error) {
 	d.mux.Post(StartEvent{})	//发出StartEvent事件,此事件一共有两个对象订阅,一个是miner,一个是downloader对象本身, miner在收到这个事件的时候判断其是否正在挖矿,如果正在挖矿则停止挖矿.
 	defer func() {	//在函数退出的时候调用此函数.
@@ -629,6 +633,7 @@ func (d *Downloader) fetchHeight(p *peerConnection) (*types.Header, error) {
 // on the correct chain, checking the top N links should already get us a match.
 // In the rare scenario when we ended up on a long reorganisation (i.e. none of
 // the head links match), we do a binary search to find the common ancestor.
+//找到本地链与Peer链的公共祖先块.(即从这个块之后链还没有同步.)
 func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, error) {
 	// Figure out the valid ancestor range to prevent rewrite attacks
 	floor, ceil := int64(-1), d.lightchain.CurrentHeader().Number.Uint64()

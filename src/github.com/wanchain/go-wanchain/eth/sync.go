@@ -131,7 +131,7 @@ func (pm *ProtocolManager) txsyncLoop() {
 
 // syncer is responsible for periodically synchronising with the network, both
 // downloading hashes and blocks as well as handling the announcement handler.
-// syncer用于周期性与网络同步。
+// syncer用于周期性的或者当有新节点加入的时候与peer进行同步.
 func (pm *ProtocolManager) syncer() {
 	// Start and ensure cleanup of sync mechanisms
 	pm.fetcher.Start()	//启动fetcher.
@@ -144,9 +144,9 @@ func (pm *ProtocolManager) syncer() {
 
 	for {	//无线循环处理事件。
 		select {
-		case <-pm.newPeerCh:
+		case <-pm.newPeerCh:	//新节点被添加进来会触发同步.
 			// Make sure we have peers to select from, then sync
-			if pm.peers.Len() < minDesiredPeerCount {
+			if pm.peers.Len() < minDesiredPeerCount {	//如果peer个数小于5的话那么即使有新节点添加进来也不需要进行链同步.
 				break
 			}
 			go pm.synchronise(pm.peers.BestPeer())
@@ -163,22 +163,24 @@ func (pm *ProtocolManager) syncer() {
 }
 
 // synchronise tries to sync up our local block chain with a remote peer.
-//本地链与peer同步。
+//本地链与peer同步。(与具有最大td的peer进行同步.)
 func (pm *ProtocolManager) synchronise(peer *peer) {
 	// Short circuit if no peers are available
 	if peer == nil {	//没有Peer可用则返回.
 		return
 	}
+
+	//获得当前块的指针及td,然后获得peer的当前块指针及td. 如果当前节点的td大于等于peer的td,那么不需要同步,直接退出.(此时本地节点是最新的.)
 	// Make sure the peer's TD is higher than our own
-	currentBlock := pm.blockchain.CurrentBlock()	//获得当前块.
-	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())	//从当前块中获得total difficulty.
+	currentBlock := pm.blockchain.CurrentBlock()	//获得当前块(不需要查数据库就可以获得链当前头.)
+	td := pm.blockchain.GetTd(currentBlock.Hash(), currentBlock.NumberU64())	//从当前块中获得total difficulty.(如果缓存中没有td则需要从数据库中获取td.)
 
 	pHead, pTd := peer.Head()	//获得peer的head块指针及total difficulty.
 	if pTd.Cmp(td) <= 0 {	//如果peer的td比本节点的td还小,说明本节点的链是最新的,不需要从peer同步.
 		return
 	}
 
-	//首先选择同步模式,是fullSync mode还是fastSync mode.
+	//首先选择同步模式,是fullSync mode还是fastSync mode.(一般情况下,如果本地链高度不为0,都使用fullSync模式.)
 	// Otherwise try to sync with the downloader
 	mode := downloader.FullSync	//默认同步模式设置为fullSync.
 	if atomic.LoadUint32(&pm.fastSync) == 1 {
