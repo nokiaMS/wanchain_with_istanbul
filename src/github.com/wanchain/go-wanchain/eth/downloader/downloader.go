@@ -57,7 +57,7 @@ var (
 	qosConfidenceCap = 10   // Number of peers above which not to modify RTT confidence
 	qosTuningImpact  = 0.25 // Impact that a new tuning target has on the previous value	新的调制目标对旧值的影响.
 
-	maxQueuedHeaders  = 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)
+	maxQueuedHeaders  = 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)	//在queue中等待导入的最多的块数量。
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
 	maxResultsProcess = 2048      // Number of content download results to import at once into the chain
 
@@ -129,9 +129,9 @@ type Downloader struct {
 	headerCh      chan dataPack        // [eth/62] Channel receiving inbound block headers	从peer收到的header,存储于此.
 	bodyCh        chan dataPack        // [eth/62] Channel receiving inbound block bodies		收到body,存储于此.
 	receiptCh     chan dataPack        // [eth/63] Channel receiving inbound receipts			收到receipt,存储于此.
-	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks	body到来消息.
-	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks		receipt到来消息.
-	headerProcCh  chan []*types.Header // [eth/62] Channel to feed the header processor new tasks		header到来消息.
+	bodyWakeCh    chan bool            // [eth/62] Channel to signal the block body fetcher of new tasks	下载body的任务可以被唤醒了。
+	receiptWakeCh chan bool            // [eth/63] Channel to signal the receipt fetcher of new tasks		下载receipt的任务可以被唤醒了。
+	headerProcCh  chan []*types.Header // [eth/62] Channel to feed the header processor new tasks		从对端的dataPack中解析出来的headers存储于此。
 
 	// for stateFetcher
 	stateSyncStart chan *stateSync		//状态同步开始消息通道.
@@ -842,16 +842,17 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 		case <-d.cancelCh:
 			return errCancelHeaderFetch
 
-		case packet := <-d.headerCh:
+		case packet := <-d.headerCh:	//处理peer传递过来的headers。
 			// Make sure the active peer is giving us the skeleton headers
 			if packet.PeerId() != p.id {
 				log.Debug("Received skeleton from incorrect peer", "peer", packet.PeerId())
 				break
 			}
 			headerReqTimer.UpdateSince(request)
-			timeout.Stop()
+			timeout.Stop()	//停止超时定时器。
 
 			// If the skeleton's finished, pull any remaining head headers directly from the origin
+			//如果peer没有返回headers。
 			if packet.Items() == 0 && skeleton {
 				skeleton = false
 				getHeaders(from)
@@ -867,7 +868,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 					return errCancelHeaderFetch
 				}
 			}
-			headers := packet.(*headerPack).headers
+			headers := packet.(*headerPack).headers	//从包中获得传递过来的headers。
 
 			// If we received a skeleton batch, resolve internals concurrently
 			if skeleton {
@@ -880,10 +881,11 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 				from += uint64(proced)
 			}
 			// Insert all the new headers and fetch the next batch
+			// headers都传递过来之后插入headers，然后执行下一次获取。
 			if len(headers) > 0 {
 				p.log.Trace("Scheduling new headers", "count", len(headers), "from", from)
 				select {
-				case d.headerProcCh <- headers:
+				case d.headerProcCh <- headers:	//把从对端获得的headers存储于此，即使用框架模式获取headers，到此处的时候所有的headers也都已经获得了。
 				case <-d.cancelCh:
 					return errCancelHeaderFetch
 				}
@@ -953,6 +955,7 @@ func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) (
 // fetchBodies iteratively downloads the scheduled block bodies, taking any
 // available peers, reserving a chunk of blocks for each, waiting for delivery
 // and also periodically checking for timeouts.
+//获取块的body.
 func (d *Downloader) fetchBodies(from uint64) error {
 	log.Debug("Downloading block bodies", "origin", from)
 
@@ -1092,7 +1095,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 		case <-update:
 			// Short circuit if we lost all our peers
-			if d.peers.Len() == 0 {
+			if d.peers.Len() == 0 {	//如果peer突然不存在了，那么就返回错误。
 				return errNoPeers
 			}
 			// Check for fetch request timeouts and demote the responsible peers
@@ -1123,6 +1126,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 				break
 			}
 			// Send a download request to all idle peers, until throttled
+			//给所有peer都发送下载body的请求。
 			progressed, throttled, running := false, false, inFlight()
 			idles, total := idle()
 
@@ -1182,9 +1186,10 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 // processHeaders takes batches of retrieved headers from an input channel and
 // keeps processing and scheduling them into the header chain and downloader's
 // queue until the stream ends or a failure occurs.
+//processHeaders用于处理从peer收到的批量headers。
 func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 	// Calculate the pivoting point for switching from fast to slow sync
-	pivot := d.queue.FastSyncPivot()
+	pivot := d.queue.FastSyncPivot() //计算fastSync中轴点。
 
 	// Keep a count of uncertain headers to roll back
 	rollback := []*types.Header{}
@@ -1236,7 +1241,7 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 
 		case headers := <-d.headerProcCh:
 			// Terminate header processing if we synced up
-			if len(headers) == 0 {
+			if len(headers) == 0 {	//如果headers数组长度为0，那么说明所有header都处理完，header同步结束了。
 				// Notify everyone that headers are fully processed
 				for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 					select {
@@ -1292,10 +1297,10 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 				if limit > len(headers) {
 					limit = len(headers)
 				}
-				chunk := headers[:limit]
+				chunk := headers[:limit]	//把收到的headers分批次一批一批处理。
 
 				// In case of header only syncing, validate the chunk immediately
-				if d.mode == FastSync || d.mode == LightSync {
+				if d.mode == FastSync || d.mode == LightSync {	//fast和light的同步模式，只下载块的header，不下载块的body。
 					// Collect the yet unknown headers to mark them as uncertain
 					unknown := make([]*types.Header, 0, len(headers))
 					for _, header := range chunk {
@@ -1308,7 +1313,7 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 					if chunk[len(chunk)-1].Number.Uint64()+uint64(fsHeaderForceVerify) > pivot {
 						frequency = 1
 					}
-					if n, err := d.lightchain.InsertHeaderChain(chunk, frequency); err != nil {
+					if n, err := d.lightchain.InsertHeaderChain(chunk, frequency); err != nil {	//把headers加入到本地链上（块被同步了。）
 						// If some headers were inserted, add them too to the rollback list
 						if n > 0 {
 							rollback = append(rollback, chunk[:n]...)
@@ -1330,8 +1335,10 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 					}
 				}
 				// Unless we're doing light chains, schedule the headers for associated content retrieval
+				//fullSync模式和fastSync模式会获取全部或者部分的块body。
 				if d.mode == FullSync || d.mode == FastSync {
 					// If we've reached the allowed number of pending headers, stall a bit
+					//如果当前queue中pending的block或者receipt太多了，则需要等一等。
 					for d.queue.PendingBlocks() >= maxQueuedHeaders || d.queue.PendingReceipts() >= maxQueuedHeaders {
 						select {
 						case <-d.cancelCh:
@@ -1339,6 +1346,7 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 						case <-time.After(time.Second):
 						}
 					}
+					//header放到schedule中用于body获取。
 					// Otherwise insert the headers for content retrieval
 					inserts := d.queue.Schedule(chunk, origin)
 					if len(inserts) != len(chunk) {
@@ -1350,6 +1358,7 @@ func (d *Downloader) processHeaders(origin uint64, td *big.Int) error {
 				origin += uint64(limit)
 			}
 			// Signal the content downloaders of the availablility of new tasks
+			//给body下载协程发送消息通知新的task可用。
 			for _, ch := range []chan bool{d.bodyWakeCh, d.receiptWakeCh} {
 				select {
 				case ch <- true:
