@@ -95,7 +95,7 @@ var (
 )
 
 type Downloader struct {
-	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)
+	mode SyncMode       // Synchronisation mode defining the strategy used (per sync cycle)	//同步模式,定义了同步策略,lightSync, FastSync或者FullSync.
 	mux  *event.TypeMux // Event multiplexer to announce sync operation events
 
 	queue   *queue   // Scheduler for selecting the hashes to download			//能够下载的块hash列表.
@@ -449,6 +449,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	}
 	height := latest.Number.Uint64()	//获得peer的块高度.
 
+	//找到需要同步的开始块.
 	origin, err := d.findAncestor(p, height)	//找到本地链与peer链的公共祖先,即需要从哪个块开始同步.
 	if err != nil {
 		return err
@@ -465,7 +466,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	//使用并发的header及content获取算法来初始化同步机制.
 	//根据同步模式计算中轴点,小于中轴点的块用fast模式同步,大于中轴点的块用full模式同步.
 	pivot := uint64(0)	//pivot:中心点.
-	switch d.mode {
+	switch d.mode {	//链高度不为0时候触发的同步其模式一定为FullSync模式(即使设置了FastSync模式也会强制转换为FullSync模式.)
 	case LightSync:	//轻节点模式.
 		pivot = height	//中心点等于peer的最新块的高度.	(lightSync:同步的时候所有块都用fast模式进行同步; fastSync:pivot左侧块用fast方式同步,右侧块用full方式同步.)
 	case FastSync:		//fastSync模式.
@@ -636,7 +637,8 @@ func (d *Downloader) fetchHeight(p *peerConnection) (*types.Header, error) {
 //找到本地链与Peer链的公共祖先块.(即从这个块之后链还没有同步.)
 func (d *Downloader) findAncestor(p *peerConnection, height uint64) (uint64, error) {
 	// Figure out the valid ancestor range to prevent rewrite attacks
-	floor, ceil := int64(-1), d.lightchain.CurrentHeader().Number.Uint64()
+	//确定有效的初始节点范围以避免rewrite攻击.
+	floor, ceil := int64(-1), d.lightchain.CurrentHeader().Number.Uint64()	//ceil为当前链头编号.
 
 	p.log.Debug("Looking for common ancestor", "local", ceil, "remote", height)
 	if d.mode == FullSync {
@@ -833,10 +835,10 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 		//获取块头信息.
 		if skeleton {	//如果采用框架形式获取块头则每间隔一定数量的块获取下一个块头.
 			p.log.Trace("Fetching skeleton headers", "count", MaxHeaderFetch, "from", from)
-			go p.peer.RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false)
+			go p.peer.RequestHeadersByNumber(from+uint64(MaxHeaderFetch)-1, MaxSkeletonSize, MaxHeaderFetch-1, false)	//reverse为false代表正向查找.
 		} else {		//如果不采用框架形式,那么连续获取块头.
 			p.log.Trace("Fetching full headers", "count", MaxHeaderFetch, "from", from)
-			go p.peer.RequestHeadersByNumber(from, MaxHeaderFetch, 0, false)
+			go p.peer.RequestHeadersByNumber(from, MaxHeaderFetch, 0, false)	//reverse为false代表正向查找.
 		}
 	}
 	// Start pulling the header chain skeleton until all is done

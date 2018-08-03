@@ -61,8 +61,8 @@ type fetchResult struct {
 
 // queue represents hashes that are either need fetching or are being fetched
 type queue struct {
-	mode          SyncMode // Synchronisation mode to decide on the block parts to schedule for fetching
-	fastSyncPivot uint64   // Block number where the fast sync pivots into archive synchronisation mode
+	mode          SyncMode // Synchronisation mode to decide on the block parts to schedule for fetching	//同步模式.
+	fastSyncPivot uint64   // Block number where the fast sync pivots into archive synchronisation mode	//fastSync中轴点,左侧采用fastSync,右侧采用fullSync.
 
 	headerHead common.Hash // [eth/62] Hash of the last queued header to verify order
 
@@ -88,9 +88,9 @@ type queue struct {
 	receiptDonePool  map[common.Hash]struct{}      // [eth/63] Set of the completed receipt fetches
 
 	resultCache  []*fetchResult // Downloaded but not yet delivered fetch results
-	resultOffset uint64         // Offset of the first cached fetch result in the block chain
+	resultOffset uint64         // Offset of the first cached fetch result in the block chain	//需要同步的第一个块在链上的偏移.
 
-	lock   *sync.Mutex
+	lock   *sync.Mutex	//queue锁.
 	active *sync.Cond	//条件变量.
 	closed bool
 }
@@ -860,14 +860,15 @@ func (q *queue) deliver(id string, taskPool map[common.Hash]*types.Header, taskQ
 
 // Prepare configures the result cache to allow accepting and caching inbound
 // fetch results.
+//Prepare函数配置结果cache,用来接收从peer传递过来的结果数据.
 func (q *queue) Prepare(offset uint64, mode SyncMode, pivot uint64, head *types.Header) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+	q.lock.Lock()	//加锁.
+	defer q.lock.Unlock()	//解锁.
 
 	// Prepare the queue for sync results
 	if q.resultOffset < offset {
 		q.resultOffset = offset
 	}
-	q.fastSyncPivot = pivot
-	q.mode = mode
+	q.fastSyncPivot = pivot		//fastSync中轴点.
+	q.mode = mode	//同步模式.
 }

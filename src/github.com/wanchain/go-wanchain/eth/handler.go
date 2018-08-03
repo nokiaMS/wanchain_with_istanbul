@@ -379,7 +379,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&query); err != nil {	//从msg中解析出指定结构体.
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		hashMode := query.Origin.Hash != (common.Hash{})	//获得开始块的hash.
+		hashMode := query.Origin.Hash != (common.Hash{})	//获得开始块的hash,如果获取到那么使用hash读取header,如果没有获取到hash,那么使用number获取header.
 
 		// Gather headers until the fetch or network limits is reached
 		var (
@@ -392,9 +392,9 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			//获得开始块的hash.
 			var origin *types.Header
 			if hashMode {
-				origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)
+				origin = pm.blockchain.GetHeaderByHash(query.Origin.Hash)	//根据hash读取块.
 			} else {
-				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)
+				origin = pm.blockchain.GetHeaderByNumber(query.Origin.Number)	//根据number读取块.
 			}
 			if origin == nil {
 				break
@@ -416,7 +416,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						break
 					}
 				}
-			case query.Origin.Hash != (common.Hash{}) && !query.Reverse:
+			case query.Origin.Hash != (common.Hash{}) && !query.Reverse:	//基于hash的正向查找.
 				// Hash based traversal towards the leaf block
 				var (
 					current = origin.Number.Uint64()
@@ -437,7 +437,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 						unknown = true
 					}
 				}
-			case query.Reverse:
+			case query.Reverse:		//基于块号的反向查找.
 				// Number based traversal towards the genesis block
 				if query.Origin.Number >= query.Skip+1 {
 					query.Origin.Number -= (query.Skip + 1)
@@ -445,7 +445,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					unknown = true
 				}
 
-			case !query.Reverse:
+			case !query.Reverse:	//基于块号的正向查找.
 				// Number based traversal towards the leaf block
 				query.Origin.Number += (query.Skip + 1)
 			}

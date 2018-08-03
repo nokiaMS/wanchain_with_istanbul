@@ -540,6 +540,7 @@ func (bc *BlockChain) HasBlockAndState(hash common.Hash) bool {
 
 // GetBlock retrieves a block from the database by hash and number,
 // caching it if found.
+//从数据库中读取块信息并缓存到cache中.
 func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	// Short circuit if the block's already in the cache, retrieve otherwise
 	if block, ok := bc.blockCache.Get(hash); ok {	//如果在cache中存在了要查找的block,那么直接返回.
@@ -562,12 +563,13 @@ func (bc *BlockChain) GetBlockByHash(hash common.Hash) *types.Block {
 
 // GetBlockByNumber retrieves a block from the database by number, caching it
 // (associated with its hash) if found.
+//从数据库中读块信息并缓存到cache中.
 func (bc *BlockChain) GetBlockByNumber(number uint64) *types.Block {
-	hash := GetCanonicalHash(bc.chainDb, number)
+	hash := GetCanonicalHash(bc.chainDb, number)	//根据number查找hash.
 	if hash == (common.Hash{}) {
 		return nil
 	}
-	return bc.GetBlock(hash, number)
+	return bc.GetBlock(hash, number)	//根据hash及number查找块信息.
 }
 
 // GetBlocksFromHash returns the block corresponding to hash and up to n-1 ancestors.

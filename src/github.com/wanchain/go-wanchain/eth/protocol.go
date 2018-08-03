@@ -131,7 +131,7 @@ type getBlockHeadersData struct {
 	Origin  hashOrNumber // Block from which to retrieve headers	从哪一个块开始获取块头.
 	Amount  uint64       // Maximum number of headers to retrieve	获取的最大的header数量.
 	Skip    uint64       // Blocks to skip between consecutive headers		连续块头之间跳过的块数.即间隔多少个块获取一个块头.
-	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)	是正序获得块头还是反序获得块头.
+	Reverse bool         // Query direction (false = rising towards latest, true = falling towards genesis)	是正序获得块头还是反序获得块头.false:升序查找,true:降序查找.
 }
 
 // hashOrNumber is a combined field for specifying an origin block.
