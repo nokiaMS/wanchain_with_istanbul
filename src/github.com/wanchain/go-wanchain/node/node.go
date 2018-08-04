@@ -257,6 +257,7 @@ func (n *Node) openDataDir() error {
 // startRPC is a helper method to start all the various RPC endpoint during node
 // startup. It's not meant to be called at any time afterwards as it makes certain
 // assumptions about the state of the node.
+//启动节点rpc服务。
 func (n *Node) startRPC(services map[reflect.Type]Service) error {
 	// Gather all the possible APIs to surface
 	apis := n.apis()
@@ -271,6 +272,7 @@ func (n *Node) startRPC(services map[reflect.Type]Service) error {
 		n.stopInProc()
 		return err
 	}
+	//rpc通过http进行访问。
 	if err := n.startHTTP(n.httpEndpoint, apis, n.config.HTTPModules, n.config.HTTPCors); err != nil {
 		n.stopIPC()
 		n.stopInProc()
@@ -384,7 +386,7 @@ func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors
 		whitelist[module] = true
 	}
 	// Register all the APIs exposed by the services
-	handler := rpc.NewServer()
+	handler := rpc.NewServer()	//创建一个用于处理http请求的rpc server实例。
 	for _, api := range apis {
 		if whitelist[api.Namespace] || (len(whitelist) == 0 && api.Public) {
 			if err := handler.RegisterName(api.Namespace, api.Service); err != nil {
@@ -398,16 +400,18 @@ func (n *Node) startHTTP(endpoint string, apis []rpc.API, modules []string, cors
 		listener net.Listener
 		err      error
 	)
-	if listener, err = net.Listen("tcp", endpoint); err != nil {
+	if listener, err = net.Listen("tcp", endpoint); err != nil {	//建立了一个tcp服务器，监听指定的ip:port。
 		return err
 	}
-	go rpc.NewHTTPServer(cors, handler).Serve(listener)
+
+	//启动一个独立的协程来监听rpc请求，其中handler是处理函数。
+	go rpc.NewHTTPServer(cors, handler).Serve(listener)	//serve函数接收客户端请求并处理。
 	log.Info(fmt.Sprintf("HTTP endpoint opened: http://%s", endpoint))
 
 	// All listeners booted successfully
 	n.httpEndpoint = endpoint
 	n.httpListener = listener
-	n.httpHandler = handler
+	n.httpHandler = handler	//http server收到请求之后使用handler来处理请求。
 
 	return nil
 }
