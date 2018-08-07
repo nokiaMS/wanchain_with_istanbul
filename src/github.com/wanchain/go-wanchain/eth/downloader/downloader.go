@@ -859,7 +859,8 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 			timeout.Stop()	//停止超时定时器。
 
 			// If the skeleton's finished, pull any remaining head headers directly from the origin
-			//如果peer没有返回headers。
+			//如果peer没有返回headers,那么就不按照框架模式取header了,而是按照顺序取header.
+			//(考虑一种情况,如果经常进行块同步,那么节点之间是不会超过MaxHeaderFetch个间隔的,这样的话在skeleton为true的时候返回的header就为空,因此再次发送取header的请求,此时按照顺序模式取header.)
 			if packet.Items() == 0 && skeleton {
 				skeleton = false
 				getHeaders(from)
@@ -878,8 +879,9 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 			headers := packet.(*headerPack).headers	//从包中获得传递过来的headers。
 
 			// If we received a skeleton batch, resolve internals concurrently
+			//如果按照并发模式取块并且取到了,那么要并发的获取框架块间隔之间的块.
 			if skeleton {
-				filled, proced, err := d.fillHeaderSkeleton(from, headers)
+				filled, proced, err := d.fillHeaderSkeleton(from, headers)	//from:开始块, headers:框架块列表.
 				if err != nil {
 					p.log.Debug("Skeleton chain invalid", "err", err)
 					return errInvalidChain

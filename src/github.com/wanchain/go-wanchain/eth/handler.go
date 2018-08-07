@@ -447,7 +447,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 			case !query.Reverse:	//基于块号的正向查找.
 				// Number based traversal towards the leaf block
-				query.Origin.Number += (query.Skip + 1)
+				query.Origin.Number += (query.Skip + 1)		//每间隔skip个块取一个header.
 			}
 		}
 		return p.SendBlockHeaders(headers)		//发送给请求端获得到的headers列表信息.
