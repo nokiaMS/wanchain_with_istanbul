@@ -881,7 +881,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 			// If we received a skeleton batch, resolve internals concurrently
 			//如果按照并发模式取块并且取到了,那么要并发的获取框架块间隔之间的块.
 			if skeleton {
-				filled, proced, err := d.fillHeaderSkeleton(from, headers)	//from:开始块, headers:框架块列表.
+				filled, proced, err := d.fillHeaderSkeleton(from, headers)	//from:开始块, headers:框架块列表.（即使使用框架获取，此函数结束之后所有的headers也已经都被补全了。）
 				if err != nil {
 					p.log.Debug("Skeleton chain invalid", "err", err)
 					return errInvalidChain
@@ -894,7 +894,7 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 			if len(headers) > 0 {
 				p.log.Trace("Scheduling new headers", "count", len(headers), "from", from)
 				select {
-				case d.headerProcCh <- headers:	//把从对端获得的headers存储于此，即使用框架模式获取headers，到此处的时候所有的headers也都已经获得了。
+				case d.headerProcCh <- headers:	//把从对端获得的headers存储于此，即使是用框架模式获取headers，到此处的时候所有的headers也都已经获得了。
 				case <-d.cancelCh:
 					return errCancelHeaderFetch
 				}
@@ -933,20 +933,25 @@ func (d *Downloader) fetchHeaders(p *peerConnection, from uint64) error {
 //
 // The method returs the entire filled skeleton and also the number of headers
 // already forwarded for processing.
+//从所有的可用节点并发获取header然后把这些header映射到skeleton header chain上.
 func (d *Downloader) fillHeaderSkeleton(from uint64, skeleton []*types.Header) ([]*types.Header, int, error) {
 	log.Debug("Filling up skeleton", "from", from)
-	d.queue.ScheduleSkeleton(from, skeleton)
+	d.queue.ScheduleSkeleton(from, skeleton)	//把需要获取的headers索引添加到调度队列中。
 
 	var (
 		deliver = func(packet dataPack) (int, error) {
 			pack := packet.(*headerPack)
 			return d.queue.DeliverHeaders(pack.peerId, pack.headers, d.headerProcCh)
 		}
+		//expire函数，
 		expire   = func() map[string]int { return d.queue.ExpireHeaders(d.requestTTL()) }
 		throttle = func() bool { return false }
+
+		//reserve函数。
 		reserve  = func(p *peerConnection, count int) (*fetchRequest, bool, error) {
-			return d.queue.ReserveHeaders(p, count), false, nil
+			return d.queue.ReserveHeaders(p, count), false, nil	//为制定peer构造fetchRequest，然后把请求添加到headerPendPool中此peer对应的key下。
 		}
+		//Fetch函数。
 		fetch    = func(p *peerConnection, req *fetchRequest) error { return p.FetchHeaders(req.From, MaxHeaderFetch) }
 		capacity = func(p *peerConnection) int { return p.HeaderCapacity(d.requestRTT()) }
 		setIdle  = func(p *peerConnection, accepted int) { p.SetHeadersIdle(accepted) }
@@ -1041,8 +1046,8 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 	idle func() ([]*peerConnection, int), setIdle func(*peerConnection, int), kind string) error {
 
 	// Create a ticker to detect expired retrieval tasks
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	ticker := time.NewTicker(100 * time.Millisecond)	//创建一个100毫秒的定时器。
+	defer ticker.Stop()	//在函数推出的时候停止定时器。
 
 	update := make(chan struct{}, 1)
 
@@ -1095,20 +1100,21 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 			default:
 			}
 
-		case <-ticker.C:
+		case <-ticker.C:	//1.定时器到期。每间隔100毫秒都向update通道发送消息。
 			// Sanity check update the progress
 			select {
-			case update <- struct{}{}:
+			case update <- struct{}{}:  //向update通道发送消息。
 			default:
 			}
 
-		case <-update:
+		case <-update:	//2. update通道收到了触发消息。
 			// Short circuit if we lost all our peers
 			if d.peers.Len() == 0 {	//如果peer突然不存在了，那么就返回错误。
 				return errNoPeers
 			}
 			// Check for fetch request timeouts and demote the responsible peers
 			for pid, fails := range expire() {
+				//
 				if peer := d.peers.Peer(pid); peer != nil {
 					// If a lot of retrieval elements expired, we might have overestimated the remote peer or perhaps
 					// ourselves. Only reset to minimal throughput but don't drop just yet. If even the minimal times
@@ -1135,7 +1141,6 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 				break
 			}
 			// Send a download request to all idle peers, until throttled
-			//给所有peer都发送下载body的请求。
 			progressed, throttled, running := false, false, inFlight()
 			idles, total := idle()
 
@@ -1152,7 +1157,8 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 				// Reserve a chunk of fetches for a peer. A nil can mean either that
 				// no more headers are available, or that the peer is known not to
 				// have them.
-				request, progress, err := reserve(peer, capacity(peer))
+				//构造fetchRequest.
+				request, progress, err := reserve(peer, capacity(peer))	//给peer预留一个header用于获取，并构造fetchRequest请求。
 				if err != nil {
 					return err
 				}
@@ -1173,6 +1179,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 				if fetchHook != nil {
 					fetchHook(request.Headers)
 				}
+				//从peer获取headers。
 				if err := fetch(peer, request); err != nil {
 					// Although we could try and make an attempt to fix this, this error really
 					// means that we've double allocated a fetch task to a peer. If that is the

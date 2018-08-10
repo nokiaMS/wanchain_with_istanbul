@@ -60,6 +60,7 @@ type fetchResult struct {
 }
 
 // queue represents hashes that are either need fetching or are being fetched
+// queue代表正在获取的hash或者需要被获取的hash的相关任务.
 type queue struct {
 	mode          SyncMode // Synchronisation mode to decide on the block parts to schedule for fetching	//同步模式.
 	fastSyncPivot uint64   // Block number where the fast sync pivots into archive synchronisation mode	//fastSync中轴点,左侧采用fastSync,右侧采用fullSync.
@@ -67,10 +68,10 @@ type queue struct {
 	headerHead common.Hash // [eth/62] Hash of the last queued header to verify order
 
 	// Headers are "special", they download in batches, supported by a skeleton chain
-	headerTaskPool  map[uint64]*types.Header       // [eth/62] Pending header retrieval tasks, mapping starting indexes to skeleton headers
-	headerTaskQueue *prque.Prque                   // [eth/62] Priority queue of the skeleton indexes to fetch the filling headers for
-	headerPeerMiss  map[string]map[uint64]struct{} // [eth/62] Set of per-peer header batches known to be unavailable
-	headerPendPool  map[string]*fetchRequest       // [eth/62] Currently pending header retrieval operations
+	headerTaskPool  map[uint64]*types.Header       // [eth/62] Pending header retrieval tasks, mapping starting indexes to skeleton headers	//header获取任务的索引，指向每个skeleton中的header.
+	headerTaskQueue *prque.Prque                   // [eth/62] Priority queue of the skeleton indexes to fetch the filling headers for //优先级队列用于获得待填充的headers。
+	headerPeerMiss  map[string]map[uint64]struct{} // [eth/62] Set of per-peer header batches known to be unavailable	//key为peer id，存储对这个节点来说不可用的header。
+	headerPendPool  map[string]*fetchRequest       // [eth/62] Currently pending header retrieval operations		//pending header获取操作。此key为peer id。
 	headerResults   []*types.Header                // [eth/62] Result cache accumulating the completed headers
 	headerProced    int                            // [eth/62] Number of headers already processed from the results
 	headerOffset    uint64                         // [eth/62] Number of the first header in the result cache
@@ -254,9 +255,10 @@ func (q *queue) ShouldThrottleReceipts() bool {
 
 // ScheduleSkeleton adds a batch of header retrieval tasks to the queue to fill
 // up an already retrieved header skeleton.
+//此函数批量添加header获取任务到queue中,用来填充已经获取到的header框架.
 func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+	q.lock.Lock()	//加queue锁。
+	defer q.lock.Unlock()	//解queue锁。
 
 	// No skeleton retrieval can be in progress, fail hard if so (huge implementation bug)
 	if q.headerResults != nil {
@@ -264,18 +266,18 @@ func (q *queue) ScheduleSkeleton(from uint64, skeleton []*types.Header) {
 	}
 	// Shedule all the header retrieval tasks for the skeleton assembly
 	q.headerTaskPool = make(map[uint64]*types.Header)
-	q.headerTaskQueue = prque.New()
+	q.headerTaskQueue = prque.New()		//是一个优先级队列。
 	q.headerPeerMiss = make(map[string]map[uint64]struct{}) // Reset availability to correct invalid chains
 	q.headerResults = make([]*types.Header, len(skeleton)*MaxHeaderFetch)
 	q.headerProced = 0
 	q.headerOffset = from
 	q.headerContCh = make(chan bool, 1)
 
-	for i, header := range skeleton {
+	for i, header := range skeleton {	//处理所有框架中的header.
 		index := from + uint64(i*MaxHeaderFetch)
 
 		q.headerTaskPool[index] = header
-		q.headerTaskQueue.Push(index, -float32(index))
+		q.headerTaskQueue.Push(index, -float32(index))	//因为是负数所以索引越小优先级越高。
 	}
 }
 
@@ -391,19 +393,20 @@ func (q *queue) countProcessableItems() int {
 
 // ReserveHeaders reserves a set of headers for the given peer, skipping any
 // previously failed batches.
+//预留此peer需要获得的header，然后构造fetchRequest请求填充到映射headerPendPool中此peer对应的位置。
 func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
-	q.lock.Lock()
-	defer q.lock.Unlock()
+	q.lock.Lock()	//queue加锁。
+	defer q.lock.Unlock()	//queue解锁。
 
 	// Short circuit if the peer's already downloading something (sanity check to
 	// not corrupt state)
 	if _, ok := q.headerPendPool[p.id]; ok {
 		return nil
 	}
-	// Retrieve a batch of hashes, skipping previously failed ones
-	send, skip := uint64(0), []uint64{}
+	// Retrieve a batch of hashes, skipping previously failed ones		//预留一批hash。
+	send, skip := uint64(0), []uint64{}		//skip存储对这个节点来说不可用的header index，send存储获取到的header index.
 	for send == 0 && !q.headerTaskQueue.Empty() {
-		from, _ := q.headerTaskQueue.Pop()
+		from, _ := q.headerTaskQueue.Pop()	//弹出一个header index。
 		if q.headerPeerMiss[p.id] != nil {
 			if _, ok := q.headerPeerMiss[p.id][from.(uint64)]; ok {
 				skip = append(skip, from.(uint64))
@@ -412,7 +415,8 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
 		}
 		send = from.(uint64)
 	}
-	// Merge all the skipped batches back
+
+	// Merge all the skipped batches back	//把所有此节点没有的header再次填充回headerTaskQueue队列中。
 	for _, from := range skip {
 		q.headerTaskQueue.Push(from, -float32(from))
 	}
@@ -420,12 +424,12 @@ func (q *queue) ReserveHeaders(p *peerConnection, count int) *fetchRequest {
 	if send == 0 {
 		return nil
 	}
-	request := &fetchRequest{
-		Peer: p,
-		From: send,
-		Time: time.Now(),
+	request := &fetchRequest{	//构造获取请求。
+		Peer: p,	//peer对象。
+		From: send,	//需要获取的header index.
+		Time: time.Now(),	//当前时间戳。
 	}
-	q.headerPendPool[p.id] = request
+	q.headerPendPool[p.id] = request	//把peer需要的操作存储到headerPendPool中peer id对应的位置。
 	return request
 }
 

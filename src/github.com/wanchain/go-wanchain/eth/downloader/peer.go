@@ -144,6 +144,7 @@ func (p *peerConnection) Reset() {
 }
 
 // FetchHeaders sends a header retrieval request to the remote peer.
+//fetchHeaders发送一个header获取请求给remote peer.
 func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 	// Sanity check the protocol version
 	if p.version < 62 {
@@ -162,6 +163,7 @@ func (p *peerConnection) FetchHeaders(from uint64, count int) error {
 }
 
 // FetchBodies sends a block body retrieval request to the remote peer.
+//向peer发送body获取请求。
 func (p *peerConnection) FetchBodies(request *fetchRequest) error {
 	// Sanity check the protocol version
 	if p.version < 62 {
