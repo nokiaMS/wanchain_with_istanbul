@@ -861,6 +861,7 @@ func (bc *BlockChain) WriteBlockAndState(block *types.Block, receipts []*types.R
 // wrong.
 //
 // After insertion is done, all accumulated events will be fired.
+// 把一批塊插入到鏈上.
 func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	n, events, logs, err := bc.insertChain(chain)
 	bc.PostChainEvents(events, logs)
@@ -909,7 +910,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 	abort, results := bc.engine.VerifyHeaders(bc, headers, seals)
 	defer close(abort)
 	// Iterate over the blocks and insert when the verifier permits
-	for i, block := range chain {
+	for i, block := range chain {	//對於所有塊做處理.
 		// If the chain is terminating, stop processing blocks
 		if atomic.LoadInt32(&bc.procInterrupt) == 1 {
 			log.Debug("Premature abort during blocks processing")

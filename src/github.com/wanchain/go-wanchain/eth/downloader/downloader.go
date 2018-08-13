@@ -59,7 +59,7 @@ var (
 
 	maxQueuedHeaders  = 32 * 1024 // [eth/62] Maximum number of headers to queue for import (DOS protection)	//在queue中等待导入的最多的块数量。
 	maxHeadersProcess = 2048      // Number of header download results to import at once into the chain
-	maxResultsProcess = 2048      // Number of content download results to import at once into the chain
+	maxResultsProcess = 2048      // Number of content download results to import at once into the chain		//一次上鏈塊數的最大數.
 
 	fsHeaderCheckFrequency = 100        // Verification frequency of the downloaded headers during fast sync
 	fsHeaderSafetyNet      = 2048       // Number of headers to discard in case a chain violation is detected
@@ -197,7 +197,7 @@ type BlockChain interface {
 	InsertChain(types.Blocks) (int, error)
 
 	// InsertReceiptChain inserts a batch of receipts into the local chain.
-	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)
+	InsertReceiptChain(types.Blocks, []types.Receipts) (int, error)	//插入receipts.
 }
 
 // New creates a new downloader to fetch hashes and blocks from remote peers.
@@ -404,7 +404,7 @@ func (d *Downloader) synchronise(id string, hash common.Hash, td *big.Int, mode 
 	// Set the requested sync mode, unless it's forbidden
 	//设置同步模式.
 	d.mode = mode
-	if d.mode == FastSync && atomic.LoadUint32(&d.fsPivotFails) >= fsCriticalTrials {
+	if d.mode == FastSync && atomic.LoadUint32(&d.fsPivotFails) >= fsCriticalTrials {	//當fastsync模式的錯誤計數超過了32之後,強制採用fullSync方式進行同步.
 		d.mode = FullSync
 	}
 	// Retrieve the origin peer and initiate the downloading process
@@ -472,7 +472,7 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	case FastSync:		//fastSync模式.
 		// Calculate the new fast/slow sync pivot point	计算快速/慢速同步时候的中心点.小于中心点的块用fastSync,大于中心点的块用fullSync模式进行同步.
 		if d.fsPivotLock == nil {	//fs中轴锁非空.
-			pivotOffset, err := rand.Int(rand.Reader, big.NewInt(int64(fsPivotInterval)))	//计算fs中轴偏移.
+			pivotOffset, err := rand.Int(rand.Reader, big.NewInt(int64(fsPivotInterval)))	//计算fs中轴偏移.(返回1-256之間的隨機數.)
 			if err != nil {
 				panic(fmt.Sprintf("Failed to access crypto random source: %v", err))
 			}
@@ -1401,6 +1401,7 @@ func (d *Downloader) processFullSyncContent() error {
 	}
 }
 
+//full sync模式下插入塊.
 func (d *Downloader) importBlockResults(results []*fetchResult) error {
 	for len(results) != 0 {
 		// Check for any termination requests. This makes clean shutdown faster.
@@ -1435,15 +1436,15 @@ func (d *Downloader) importBlockResults(results []*fetchResult) error {
 func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 	// Start syncing state of the reported head block.
 	// This should get us most of the state of the pivot block.
-	stateSync := d.syncState(latest.Root)
+	stateSync := d.syncState(latest.Root)	//創建一個新的狀態同步對象.
 	defer stateSync.Cancel()
 	go func() {
-		if err := stateSync.Wait(); err != nil {
+		if err := stateSync.Wait(); err != nil {	//等待狀態同步對象結束后關閉queue.
 			d.queue.Close() // wake up WaitResults
 		}
 	}()
 
-	pivot := d.queue.FastSyncPivot()
+	pivot := d.queue.FastSyncPivot()	//獲得中軸點.
 	for {
 		results := d.queue.WaitResults()
 		if len(results) == 0 {
@@ -1452,22 +1453,26 @@ func (d *Downloader) processFastSyncContent(latest *types.Header) error {
 		if d.chainInsertHook != nil {
 			d.chainInsertHook(results)
 		}
-		P, beforeP, afterP := splitAroundPivot(pivot, results)
+		P, beforeP, afterP := splitAroundPivot(pivot, results)	//對從peer獲取到的結果做分離,p:中軸點; beforeP: 採用fastSync方式的節點; afterP: 採用fullSync方式的節點.
+		//fast模式處理beforeP.
 		if err := d.commitFastSyncData(beforeP, stateSync); err != nil {
 			return err
 		}
+		//處理pivot點.
 		if P != nil {
 			stateSync.Cancel()
 			if err := d.commitPivotBlock(P); err != nil {
 				return err
 			}
 		}
+		//fullsync方式處理afterP.
 		if err := d.importBlockResults(afterP); err != nil {
 			return err
 		}
 	}
 }
 
+//pivot 中軸點. results 從peer獲取的結果.
 func splitAroundPivot(pivot uint64, results []*fetchResult) (p *fetchResult, before, after []*fetchResult) {
 	for _, result := range results {
 		num := result.Header.Number.Uint64()
@@ -1483,6 +1488,7 @@ func splitAroundPivot(pivot uint64, results []*fetchResult) (p *fetchResult, bef
 	return p, before, after
 }
 
+//採用fastSync方式對塊上鏈.
 func (d *Downloader) commitFastSyncData(results []*fetchResult, stateSync *stateSync) error {
 	for len(results) != 0 {
 		// Check for any termination requests.
@@ -1496,7 +1502,7 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult, stateSync *state
 		default:
 		}
 		// Retrieve the a batch of results to import
-		items := int(math.Min(float64(len(results)), float64(maxResultsProcess)))
+		items := int(math.Min(float64(len(results)), float64(maxResultsProcess)))	//一次上鏈的塊數不能夠超過
 		first, last := results[0].Header, results[items-1].Header
 		log.Debug("Inserting fast-sync blocks", "items", len(results),
 			"firstnum", first.Number, "firsthash", first.Hash(),
@@ -1504,10 +1510,11 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult, stateSync *state
 		)
 		blocks := make([]*types.Block, items)
 		receipts := make([]types.Receipts, items)
-		for i, result := range results[:items] {
+		for i, result := range results[:items] {	//對每個result構造針對這個result的新塊.
 			blocks[i] = types.NewBlockWithHeader(result.Header).WithBody(result.Transactions, result.Uncles)
-			receipts[i] = result.Receipts
+			receipts[i] = result.Receipts	//獲得結果中的receipts.
 		}
+		//塊上鏈.
 		if index, err := d.blockchain.InsertReceiptChain(blocks, receipts); err != nil {
 			log.Debug("Downloaded item processing failed", "number", results[index].Header.Number, "hash", results[index].Header.Hash(), "err", err)
 			return errInvalidChain

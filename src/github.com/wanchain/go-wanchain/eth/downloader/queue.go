@@ -325,8 +325,8 @@ func (q *queue) Schedule(headers []*types.Header, from uint64) []*types.Header {
 		q.blockTaskPool[hash] = header
 		q.blockTaskQueue.Push(header, -float32(header.Number.Uint64()))
 
-		if q.mode == FastSync && header.Number.Uint64() <= q.fastSyncPivot {
-			// Fast phase of the fast sync, retrieve receipts too
+		if q.mode == FastSync && header.Number.Uint64() <= q.fastSyncPivot {	//fastsync模式,并且塊號小於fastsyncpivot,則當前使用的是fastSync方式下載.
+			// Fast phase of the fast sync, retrieve receipts too	//fastSync方式也會獲得交易的receipts.
 			q.receiptTaskPool[hash] = header
 			q.receiptTaskQueue.Push(header, -float32(header.Number.Uint64()))
 		}
