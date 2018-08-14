@@ -502,6 +502,7 @@ func (bc *BlockChain) GetBody(hash common.Hash) *types.Body {
 
 // GetBodyRLP retrieves a block body in RLP encoding from the database by hash,
 // caching it if found.
+//根据hash获得块的body.
 func (bc *BlockChain) GetBodyRLP(hash common.Hash) rlp.RawValue {
 	// Short circuit if the body's already in the cache, retrieve otherwise
 	if cached, ok := bc.bodyRLPCache.Get(hash); ok {

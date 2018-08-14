@@ -120,7 +120,7 @@ type Fetcher struct {
 	// Announce states
 	announces  map[string]int              // Per peer announce counts to prevent memory exhaustion
 	announced  map[common.Hash][]*announce // Announced blocks, scheduled for fetching
-	fetching   map[common.Hash]*announce   // Announced blocks, currently fetching
+	fetching   map[common.Hash]*announce   // Announced blocks, currently fetching	//当前正在获取的块.
 	fetched    map[common.Hash][]*announce // Blocks with headers fetched, scheduled for body retrieval
 	completing map[common.Hash]*announce   // Blocks with headers, currently body-completing
 
@@ -177,13 +177,13 @@ func New(getBlock blockRetrievalFn, verifyHeader headerVerifierFn, broadcastBloc
 // Start boots up the announcement based synchroniser, accepting and processing
 // hash notifications and block fetches until termination requested.
 func (f *Fetcher) Start() {
-	go f.loop()
+	go f.loop()	//创建协程,启动fetcher对象主循环.
 }
 
 // Stop terminates the announcement based synchroniser, canceling all pending
 // operations.
 func (f *Fetcher) Stop() {
-	close(f.quit)
+	close(f.quit)	//关闭fetcher对象.
 }
 
 // Notify announces the fetcher of the potential availability of a new block in
@@ -258,13 +258,13 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 	filter := make(chan *bodyFilterTask)
 
 	select {
-	case f.bodyFilter <- filter:
+	case f.bodyFilter <- filter:	//传递filter给f.bodyFilter.
 	case <-f.quit:
 		return nil, nil
 	}
 	// Request the filtering of the body list
 	select {
-	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, uncles: uncles, time: time}:
+	case filter <- &bodyFilterTask{peer: peer, transactions: transactions, uncles: uncles, time: time}: //构造bodyFilterTask并传递给filter.
 	case <-f.quit:
 		return nil, nil
 	}
@@ -279,6 +279,7 @@ func (f *Fetcher) FilterBodies(peer string, transactions [][]*types.Transaction,
 
 // Loop is the main fetcher loop, checking and processing various notification
 // events.
+// fetcher主循环,检测和处理各种通知事件.
 func (f *Fetcher) loop() {
 	// Iterate the block fetching until a quit is requested
 	fetchTimer := time.NewTimer(0)
@@ -508,18 +509,18 @@ func (f *Fetcher) loop() {
 				}
 			}
 
-		case filter := <-f.bodyFilter:
+		case filter := <-f.bodyFilter:	//从代码流程看在ibft共识情况下什么都没做.
 			// Block bodies arrived, extract any explicitly requested blocks, return the rest
 			var task *bodyFilterTask
 			select {
-			case task = <-filter:
+			case task = <-filter:	//从filter中读取任务
 			case <-f.quit:
 				return
 			}
 			bodyFilterInMeter.Mark(int64(len(task.transactions)))
 
 			blocks := []*types.Block{}
-			for i := 0; i < len(task.transactions) && i < len(task.uncles); i++ {
+			for i := 0; i < len(task.transactions) && i < len(task.uncles); i++ {	//在ibft中块的uncles一定为0,因此此for不会走进去.
 				// Match up a body to any possible completion request
 				matched := false
 
@@ -553,7 +554,7 @@ func (f *Fetcher) loop() {
 
 			bodyFilterOutMeter.Mark(int64(len(task.transactions)))
 			select {
-			case filter <- task:
+			case filter <- task:	//把处理完之后的task返回到filter channel中.
 			case <-f.quit:
 				return
 			}

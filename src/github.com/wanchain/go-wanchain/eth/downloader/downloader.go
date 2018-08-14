@@ -42,7 +42,7 @@ var (
 	MaxBlockFetch   = 128 // Amount of blocks to be fetched per retrieval request
 	MaxHeaderFetch  = 192 // Amount of block headers to be fetched per retrieval request	每次请求获得的最多的header数量.
 	MaxSkeletonSize = 128 // Number of header fetches to need for a skeleton assembly
-	MaxBodyFetch    = 128 // Amount of block bodies to be fetched per retrieval request
+	MaxBodyFetch    = 128 // Amount of block bodies to be fetched per retrieval request	//每个获取请求中包含的最大的body数量.
 	MaxReceiptFetch = 256 // Amount of transaction receipts to allow fetching per request
 	MaxStateFetch   = 384 // Amount of node state values to allow fetching per request
 
@@ -1547,6 +1547,7 @@ func (d *Downloader) DeliverHeaders(id string, headers []*types.Header) (err err
 }
 
 // DeliverBodies injects a new batch of block bodies received from a remote node.
+//把bodyPack放入到d.bodyCh中.
 func (d *Downloader) DeliverBodies(id string, transactions [][]*types.Transaction, uncles [][]*types.Header) (err error) {
 	return d.deliver(id, d.bodyCh, &bodyPack{id, transactions, uncles}, bodyInMeter, bodyDropMeter)
 }

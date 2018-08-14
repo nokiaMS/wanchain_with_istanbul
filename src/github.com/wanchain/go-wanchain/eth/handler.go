@@ -532,7 +532,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				bytes += len(data)
 			}
 		}
-		return p.SendBlockBodiesRLP(bodies)
+		return p.SendBlockBodiesRLP(bodies)	//通过p2p网络发送响应消息给请求端.
 
 	case msg.Code == BlockBodiesMsg:	//处理peer节点发送过来的bodies.
 		// A batch of block bodies arrived to one of our previous requests
@@ -544,7 +544,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		trasactions := make([][]*types.Transaction, len(request))
 		uncles := make([][]*types.Header, len(request))
 
-		//从收到的bodies里面获取交易及uncles.
+		//从收到的bodies里面获取交易及uncles. 此for循环把所有body中的交易都放在了一起.
 		for i, body := range request {
 			trasactions[i] = body.Transactions
 			uncles[i] = body.Uncles
@@ -552,10 +552,10 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		// Filter out any explicitly requested bodies, deliver the rest to the downloader
 		filter := len(trasactions) > 0 || len(uncles) > 0
 		if filter {
-			trasactions, uncles = pm.fetcher.FilterBodies(p.id, trasactions, uncles, time.Now())
+			trasactions, uncles = pm.fetcher.FilterBodies(p.id, trasactions, uncles, time.Now())	//在采用ibft共识时候,uncles总是为0,因此FilterBodies里的流程不会过滤任何内容.
 		}
 		if len(trasactions) > 0 || len(uncles) > 0 || !filter {
-			err := pm.downloader.DeliverBodies(p.id, trasactions, uncles)
+			err := pm.downloader.DeliverBodies(p.id, trasactions, uncles)	//传递过来的trasactions包括一批bodies中的交易.
 			if err != nil {
 				log.Debug("Failed to deliver bodies", "err", err)
 			}

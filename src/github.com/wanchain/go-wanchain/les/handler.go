@@ -45,13 +45,13 @@ import (
 )
 
 const (
-	softResponseLimit = 2 * 1024 * 1024 // Target maximum size of returned blocks, headers or node data.
+	softResponseLimit = 2 * 1024 * 1024 // Target maximum size of returned blocks, headers or node data.	//响应消息的字节限制.
 	estHeaderRlpSize  = 500             // Approximate size of an RLP encoded block header
 
 	ethVersion = 63 // equivalent eth version for the downloader
 
 	MaxHeaderFetch       = 192 // Amount of block headers to be fetched per retrieval request
-	MaxBodyFetch         = 32  // Amount of block bodies to be fetched per retrieval request
+	MaxBodyFetch         = 32  // Amount of block bodies to be fetched per retrieval request		//每个请求中允许获取的最多body数量.
 	MaxReceiptFetch      = 128 // Amount of transaction receipts to allow fetching per request
 	MaxCodeFetch         = 64  // Amount of contract codes to allow fetching per request
 	MaxProofsFetch       = 64  // Amount of merkle proofs to be fetched per retrieval request
@@ -319,6 +319,7 @@ var reqList = []uint64{GetBlockHeadersMsg, GetBlockBodiesMsg, GetCodeMsg, GetRec
 
 // handleMsg is invoked whenever an inbound message is received from a remote
 // peer. The remote connection is torn down upon returning any error.
+//接收并处理peer发送过来的消息.
 func (pm *ProtocolManager) handleMsg(p *peer) error {
 	// Read the next message from the remote peer, and ensure it's fully consumed
 	msg, err := p.rw.ReadMsg()
@@ -477,14 +478,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 		}
 
-	case GetBlockBodiesMsg:
+	case GetBlockBodiesMsg:	//peer向本节点请求block bodies.
 		p.Log().Trace("Received block bodies request")
 		// Decode the retrieval message
 		var req struct {
 			ReqID  uint64
-			Hashes []common.Hash
+			Hashes []common.Hash	//包含所有要获得body的block hash列表.
 		}
-		if err := msg.Decode(&req); err != nil {
+		if err := msg.Decode(&req); err != nil {	//消息解码.
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		// Gather blocks until the fetch or network limits is reached
@@ -492,25 +493,25 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			bytes  int
 			bodies []rlp.RawValue
 		)
-		reqCnt := len(req.Hashes)
-		if reject(uint64(reqCnt), MaxBodyFetch) {
+		reqCnt := len(req.Hashes)	//请求中hash个数.
+		if reject(uint64(reqCnt), MaxBodyFetch) {		//如果请求中获取的body数量超过了最大限制,那么返回错误.
 			return errResp(ErrRequestRejected, "")
 		}
-		for _, hash := range req.Hashes {
-			if bytes >= softResponseLimit {
+		for _, hash := range req.Hashes {	//处理请求中的每个block hash.
+			if bytes >= softResponseLimit {	//如果响应结果的字节数已经超过了限制那么不再处理后续请求,也就是说并不保证在所有情况下返回结果中包含了所有hash的body.
 				break
 			}
-			// Retrieve the requested block body, stopping if enough was found
+			// Retrieve the requested block body, stopping if enough was found		//根据hash获得块body(返回的每个body都是存储在数据库中的已经经过rlp编码的body.)
 			if data := core.GetBodyRLP(pm.chainDb, hash, core.GetBlockNumber(pm.chainDb, hash)); len(data) != 0 {
-				bodies = append(bodies, data)
-				bytes += len(data)
+				bodies = append(bodies, data)	//返回body添加到返回结果数组中.
+				bytes += len(data)	//结果字节数增加.
 			}
 		}
 		bv, rcost := p.fcClient.RequestProcessed(costs.baseCost + uint64(reqCnt)*costs.reqCost)
 		pm.server.fcCostStats.update(msg.Code, uint64(reqCnt), rcost)
 		return p.SendBlockBodiesRLP(req.ReqID, bv, bodies)
 
-	case BlockBodiesMsg:
+	case BlockBodiesMsg:	//返回请求GetBlockBodiesMsg对应的响应BlockBodiesMsg
 		if pm.odr == nil {
 			return errResp(ErrUnexpectedResponse, "")
 		}
@@ -525,7 +526,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			return errResp(ErrDecode, "msg %v: %v", msg, err)
 		}
 		p.fcServer.GotReply(resp.ReqID, resp.BV)
-		deliverMsg = &Msg{
+		deliverMsg = &Msg{	//构造deliver消息.
 			MsgType: MsgBlockBodies,
 			ReqID:   resp.ReqID,
 			Obj:     resp.Data,

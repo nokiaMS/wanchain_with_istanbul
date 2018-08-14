@@ -181,6 +181,10 @@ func (p *peer) SendBlockHeaders(reqID, bv uint64, headers []*types.Header) error
 
 // SendBlockBodiesRLP sends a batch of block contents to the remote peer from
 // an already RLP encoded format.
+// 向peer发送一批block信息,这些信息已经经过rlp编码.
+// reqID: 	请求ID.
+// bv:	peer的bufValue.
+// bodies:	要返回的已经经过rlp编码的结果数组.
 func (p *peer) SendBlockBodiesRLP(reqID, bv uint64, bodies []rlp.RawValue) error {
 	return sendResponse(p.rw, BlockBodiesMsg, reqID, bv, bodies)
 }
