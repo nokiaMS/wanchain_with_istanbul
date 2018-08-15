@@ -503,8 +503,8 @@ func (d *Downloader) syncWithPeer(p *peerConnection, hash common.Hash, td *big.I
 	//同步动作数组.
 	fetchers := []func() error{
 		func() error { return d.fetchHeaders(p, origin+1) }, // Headers are always retrieved	同步的时候headers总是需要获取的. p: peer指针,origin+1: 从最早的一个尚未同步的块开始同步.
-		func() error { return d.fetchBodies(origin + 1) },   // Bodies are retrieved during normal and fast sync
-		func() error { return d.fetchReceipts(origin + 1) }, // Receipts are retrieved during fast sync
+		func() error { return d.fetchBodies(origin + 1) },   // Bodies are retrieved during normal and fast sync	//bodies在normal和fast sync中都会被获取.
+		func() error { return d.fetchReceipts(origin + 1) }, // Receipts are retrieved during fast sync	//在fastsync过程中会从多个peers同时获取receipts.
 		func() error { return d.processHeaders(origin+1, td) },
 	}
 	//根据同步模式在动作数组中添加动作.
@@ -1047,7 +1047,7 @@ func (d *Downloader) fetchParts(errCancel error, deliveryCh chan dataPack, deliv
 
 	// Create a ticker to detect expired retrieval tasks
 	ticker := time.NewTicker(100 * time.Millisecond)	//创建一个100毫秒的定时器。
-	defer ticker.Stop()	//在函数推出的时候停止定时器。
+	defer ticker.Stop()	//在函数退出的时候停止定时器。
 
 	update := make(chan struct{}, 1)
 
@@ -1502,7 +1502,7 @@ func (d *Downloader) commitFastSyncData(results []*fetchResult, stateSync *state
 		default:
 		}
 		// Retrieve the a batch of results to import
-		items := int(math.Min(float64(len(results)), float64(maxResultsProcess)))	//一次上鏈的塊數不能夠超過
+		items := int(math.Min(float64(len(results)), float64(maxResultsProcess)))	//一次上鏈的塊數不能夠超過2048
 		first, last := results[0].Header, results[items-1].Header
 		log.Debug("Inserting fast-sync blocks", "items", len(results),
 			"firstnum", first.Number, "firsthash", first.Hash(),
