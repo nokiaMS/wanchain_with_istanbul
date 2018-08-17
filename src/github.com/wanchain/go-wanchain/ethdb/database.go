@@ -37,9 +37,10 @@ var OpenFileLimit = 64
 
 //LevelDB结构体
 type LDBDatabase struct {
-	fn string      // filename for reporting
-	db *leveldb.DB // LevelDB instance
+	fn string      // filename for reporting	//数据库全路径.
+	db *leveldb.DB // LevelDB instance			//数据库实例指针.
 
+	//用于模块性能测量.
 	getTimer       gometrics.Timer // Timer for measuring the database get request counts and latencies
 	putTimer       gometrics.Timer // Timer for measuring the database put request counts and latencies
 	delTimer       gometrics.Timer // Timer for measuring the database delete request counts and latencies
@@ -53,12 +54,16 @@ type LDBDatabase struct {
 	quitLock sync.Mutex      // Mutex protecting the quit channel access
 	quitChan chan chan error // Quit channel to stop the metrics collection before closing the database
 
-	log log.Logger // Contextual logger tracking the database path
+	log log.Logger // Contextual logger tracking the database path		//数据库日志对象.
 }
 
 // NewLDBDatabase returns a LevelDB wrapped object.
 // 创建一个level db数据库.	(level db是一个goole实现的高效的kv数据库.)
 // 此函数会创建gwan/chaindata或者gwan/lightchaindata中的各种文件,其实chaindata和lightchaindata文件夹即是一个数据库.
+//file: 数据库名称,例如: /home/guoxu/test/ibftnddes/node5/gwan/chaindata
+//cache: 没传递则为0;数据库缓存大小.
+//handles: 没传递则为0;最大打开的文件句柄数.
+//返回LDBDatabase对象指针.
 func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	logger := log.New("database", file)
 
@@ -78,74 +83,81 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
 		Filter:                 filter.NewBloomFilter(10),
 	})
-	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
-		db, err = leveldb.RecoverFile(file, nil)
+	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {		//此处使用了类型断言.这样用法的意思是不管断言之后的值是多少,只管是不是要断言的类型.corrupted返回true表示是这个类型,false表示不是这个类型.
+		db, err = leveldb.RecoverFile(file, nil)	//如果发生崩溃了那么执行recover过程.
 	}
 	// (Re)check for errors and abort if opening of the db failed
 	if err != nil {
 		return nil, err
 	}
 	return &LDBDatabase{	//返回数据库对象.
-		fn:  file,
-		db:  db,
+		fn:  file,	//数据库全路径名称.
+		db:  db,	//数据库wrapper对象指针.
 		log: logger,
 	}, nil
 }
 
 // Path returns the path to the database directory.
+// 返回数据库路径.
 func (db *LDBDatabase) Path() string {
 	return db.fn
 }
 
 // Put puts the given key / value to the queue
+// key:待写入数据的key.
+// value:待写入数据的value.
 func (db *LDBDatabase) Put(key []byte, value []byte) error {
 	// Measure the database put latency, if requested
-	if db.putTimer != nil {
+	if db.putTimer != nil {		//用于测量.
 		defer db.putTimer.UpdateSince(time.Now())
 	}
 	// Generate the data to write to disk, update the meter and write
 	//value = rle.Compress(value)
 
-	if db.writeMeter != nil {
+	if db.writeMeter != nil {	//用于测量.
 		db.writeMeter.Mark(int64(len(value)))
 	}
+	//写入数据库.
 	return db.db.Put(key, value, nil)
 }
 
+//判断db中是否有这个key.
 func (db *LDBDatabase) Has(key []byte) (bool, error) {
 	return db.db.Has(key, nil)
 }
 
 // Get returns the given key if it's present.
+//从数据库中查找指定的key.
 func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 	// Measure the database get latency, if requested
-	if db.getTimer != nil {
+	if db.getTimer != nil {		//性能测量.
 		defer db.getTimer.UpdateSince(time.Now())
 	}
 	// Retrieve the key and increment the miss counter if not found
-	dat, err := db.db.Get(key, nil)
+	dat, err := db.db.Get(key, nil)	//获得key.
 	if err != nil {
-		if db.missMeter != nil {
+		if db.missMeter != nil {	//性能测量.
 			db.missMeter.Mark(1)
 		}
 		return nil, err
 	}
 	// Otherwise update the actually retrieved amount of data
-	if db.readMeter != nil {
+	if db.readMeter != nil {	//性能测量.
 		db.readMeter.Mark(int64(len(dat)))
 	}
-	return dat, nil
+	return dat, nil	//返回key对应的value.
 	//return rle.Decompress(dat)
 }
 
 // Delete deletes the key from the queue and database
+//从数据库中删除key.
 func (db *LDBDatabase) Delete(key []byte) error {
 	// Measure the database delete latency, if requested
-	if db.delTimer != nil {
+	if db.delTimer != nil {		//测量.
 		defer db.delTimer.UpdateSince(time.Now())
 	}
 	// Execute the actual operation
-	return db.db.Delete(key, nil)
+	return db.db.Delete(key, nil)		//从数据库中删除key.
 }
 
 func (db *LDBDatabase) NewIterator() iterator.Iterator {
