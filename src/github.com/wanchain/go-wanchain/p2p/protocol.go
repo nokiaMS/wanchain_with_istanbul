@@ -22,18 +22,18 @@ import (
 	"github.com/wanchain/go-wanchain/p2p/discover"
 )
 
-// Protocol represents a P2P subprotocol implementation.
+// Protocol represents a P2P subprotocol implementation.	p2p子协议实现接口.
 type Protocol struct {
 	// Name should contain the official protocol name,
 	// often a three-letter word.
-	Name string
+	Name string	//协议名称.
 
 	// Version should contain the version number of the protocol.
-	Version uint
+	Version uint	//协议版本.
 
 	// Length should contain the number of message codes used
 	// by the protocol.
-	Length uint64
+	Length uint64	//协议消息代码长度.
 
 	// Run is called in a new groutine when the protocol has been
 	// negotiated with a peer. It should read and write messages from
@@ -42,16 +42,16 @@ type Protocol struct {
 	// The peer connection is closed when Start returns. It should return
 	// any protocol-level error (such as an I/O error) that is
 	// encountered.
-	Run func(peer *Peer, rw MsgReadWriter) error
+	Run func(peer *Peer, rw MsgReadWriter) error	//协议运行函数.
 
 	// NodeInfo is an optional helper method to retrieve protocol specific metadata
 	// about the host node.
-	NodeInfo func() interface{}
+	NodeInfo func() interface{}	//获得节点上关于此协议的信息.
 
 	// PeerInfo is an optional helper method to retrieve protocol specific metadata
 	// about a certain peer in the network. If an info retrieval function is set,
 	// but returns nil, it is assumed that the protocol handshake is still running.
-	PeerInfo func(id discover.NodeID) interface{}
+	PeerInfo func(id discover.NodeID) interface{}		//获得网络上peer端关于此协议的信息.
 }
 
 func (p Protocol) cap() Cap {

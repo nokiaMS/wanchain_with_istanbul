@@ -1,14 +1,15 @@
-# devp2p simulation examples
+# devp2p simulation examples    devp2p方针样例.
 
 ## ping-pong
 
 `ping-pong.go` implements a simulation network which contains nodes running a
 simple "ping-pong" protocol where nodes send a ping message to all their
 connected peers every 10s and receive pong messages in return.
+ping-pong.go实现了一个方针网络,这个网络的所有节点运行一个简单的ping-pong协议,在运行这个协议的节点中,每隔10秒节点发送一个ping消息给所有与它连接的peer,同时按照顺序接收pong消息.
 
 To run the simulation, run `go run ping-pong.go` in one terminal to start the
 simulation API and `./ping-pong.sh` in another to start and connect the nodes:
-
+运行此方针脚本,首先在一个终端运行ping-pong.go程序,在另外一个终端运行ping-pong.sh来连接节点.
 ```
 $ go run ping-pong.go
 INFO [08-15|13:53:49] using sim adapter

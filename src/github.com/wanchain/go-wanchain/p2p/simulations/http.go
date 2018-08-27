@@ -28,7 +28,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/julienschmidt/httprouter"	//一个高性能的http请求转发模块.
 	"github.com/wanchain/go-wanchain/event"
 	"github.com/wanchain/go-wanchain/p2p"
 	"github.com/wanchain/go-wanchain/p2p/discover"
@@ -262,14 +262,15 @@ func (c *Client) Send(method, path string, in, out interface{}) error {
 }
 
 // Server is an HTTP server providing an API to manage a simulation network
+// Server提供了管理仿真网络的rpc api.
 type Server struct {
-	router  *httprouter.Router
-	network *Network
+	router  *httprouter.Router	//高性能http请求转发模块.
+	network *Network	//仿真网络对象指针.
 }
 
-// NewServer returns a new simulation API server
+// NewServer returns a new simulation API server	创建一个新的rpc server.
 func NewServer(network *Network) *Server {
-	s := &Server{
+	s := &Server{	//创建server结构体.
 		router:  httprouter.New(),
 		network: network,
 	}

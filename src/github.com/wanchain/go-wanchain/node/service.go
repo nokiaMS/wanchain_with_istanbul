@@ -79,7 +79,7 @@ func (ctx *ServiceContext) NodeKey() *ecdsa.PrivateKey {
 //ServiceConstructor即函数指针.
 type ServiceConstructor func(ctx *ServiceContext) (Service, error)
 
-// Service is an individual protocol that can be registered into a node.
+// Service is an individual protocol that can be registered into a node.		//service代表一个注册在节点上,运行在p2p层之上的子协议.
 //
 // Notes:
 //
@@ -89,18 +89,18 @@ type ServiceConstructor func(ctx *ServiceContext) (Service, error)
 //
 // • Restart logic is not required as the node will create a fresh instance
 // every time a service is started.
-type Service interface {
+type Service interface {	//service接口, 一个service代表一个注册在节点上,运行在p2p层之上的子协议.
 	// Protocols retrieves the P2P protocols the service wishes to start.
-	Protocols() []p2p.Protocol
+	Protocols() []p2p.Protocol	//返回这个service希望启动的p2p子协议对象.有可能返回多个希望启动的p2p子协议.
 
 	// APIs retrieves the list of RPC descriptors the service provides
-	APIs() []rpc.API
+	APIs() []rpc.API	//APIs()返回service提供的rpc apis.
 
 	// Start is called after all services have been constructed and the networking
 	// layer was also initialized to spawn any goroutines required by the service.
-	Start(server *p2p.Server) error
+	Start(server *p2p.Server) error		//p2p启动后,而且p2p之上的所有services都被构建之后,Start()函数会被调用来启动本service.
 
 	// Stop terminates all goroutines belonging to the service, blocking until they
 	// are all terminated.
-	Stop() error
+	Stop() error    //停止service.
 }

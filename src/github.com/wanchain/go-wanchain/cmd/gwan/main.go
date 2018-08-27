@@ -143,8 +143,8 @@ var (
 func init() {
 	// Initialize the CLI app and start Geth
 	app.Action = geth	//应用程序要运行的函数。
-	app.HideVersion = true // we have a command to print the version
-	app.Copyright = "Copyright 2018-2023 The go-wanchain Authors"
+	app.HideVersion = true // we have a command to print the version	//隐藏版本号.
+	app.Copyright = "Copyright 2018-2023 The go-wanchain Authors"		//copyright.
 	app.Commands = []cli.Command{	//geth程序支持的子命令列表。
 		// See chaincmd.go:
 		initCommand,
