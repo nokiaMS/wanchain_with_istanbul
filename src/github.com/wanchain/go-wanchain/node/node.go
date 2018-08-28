@@ -194,7 +194,7 @@ func (n *Node) Start() error {
 	}
 	// Gather the protocols and start the freshly assembled P2P server
 	for _, service := range services {
-		running.Protocols = append(running.Protocols, service.Protocols()...)
+		running.Protocols = append(running.Protocols, service.Protocols()...) //其实这里返回的就是共识算法的协议,istanbul返回name为istanbul的协议,ethash和clique均返回name为eth的协议.
 	}
 	//启动p2p server.
 	if err := running.Start(); err != nil {
@@ -206,7 +206,7 @@ func (n *Node) Start() error {
 	started := []reflect.Type{}
 	for kind, service := range services {
 		// Start the next service, stopping all previous upon failure
-		if err := service.Start(running); err != nil {
+		if err := service.Start(running); err != nil {	//此处的service对象实际就是eth对象.
 			for _, kind := range started {
 				services[kind].Stop()
 			}

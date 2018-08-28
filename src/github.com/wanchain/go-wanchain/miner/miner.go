@@ -151,7 +151,7 @@ func (self *Miner) Unregister(agent Agent) {
 
 //是否正在挖矿.返回true表示正在挖矿,false表示没有正在挖矿.
 func (self *Miner) Mining() bool {
-	return atomic.LoadInt32(&self.mining) > 0	//mining大于0表示正在挖矿,0表示没有正在挖矿.
+	return atomic.LoadInt32(&self.mining) > 0	//mining大于0表示正在挖矿,0表示没有正在挖矿.	LoadInt32表示原子读取int32的操作.
 }
 
 func (self *Miner) HashRate() (tot int64) {

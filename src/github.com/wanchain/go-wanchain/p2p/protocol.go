@@ -42,7 +42,7 @@ type Protocol struct {
 	// The peer connection is closed when Start returns. It should return
 	// any protocol-level error (such as an I/O error) that is
 	// encountered.
-	Run func(peer *Peer, rw MsgReadWriter) error	//协议运行函数.
+	Run func(peer *Peer, rw MsgReadWriter) error	//协议运行函数.当本节点与peer协商完成之后,会启动一个单独的协程调用本协议的Run函数与peer通信.
 
 	// NodeInfo is an optional helper method to retrieve protocol specific metadata
 	// about the host node.

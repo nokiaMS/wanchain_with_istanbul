@@ -103,6 +103,7 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the ethereum network.
+// 创建node的protocolManager.
 func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, networkId uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
@@ -120,8 +121,9 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 		engine:      engine,
 	}
 
-	if handler, ok := manager.engine.(consensus.Handler); ok {
-		handler.SetBroadcaster(manager)
+	//共识都实现了consensus.Handler接口,此处把共识对象强制转换为consensus.Handler接口,然后设置共识机制的broadcaster为当前eth的protocol manager.
+	if handler, ok := manager.engine.(consensus.Handler); ok {		//如果能够转换成对应的接口,那么ok返回true,如果对象类型不能断言成指定的类型,那么ok返回false.
+		handler.SetBroadcaster(manager)		//设置共识对象的broadcaster为eth的protocol manager.
 	}
 
 	// Figure out whether to allow fast sync or not
@@ -161,10 +163,10 @@ func NewProtocolManager(config *params.ChainConfig, mode downloader.SyncMode, ne
 					return p2p.DiscQuitting
 				}
 			},
-			NodeInfo: func() interface{} {
+			NodeInfo: func() interface{} {	//获得节点信息的函数.
 				return manager.NodeInfo()
 			},
-			PeerInfo: func(id discover.NodeID) interface{} {
+			PeerInfo: func(id discover.NodeID) interface{} {	//获得peer信息的函数.
 				if p := manager.peers.Peer(fmt.Sprintf("%x", id[:8])); p != nil {
 					return p.Info()
 				}

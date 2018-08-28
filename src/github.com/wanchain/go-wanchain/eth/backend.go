@@ -180,7 +180,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		return nil, err
 	}
 
-	//创建ethereum对象额miner域.
+	//创建ethereum对象的miner域.
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
 	eth.miner.SetExtra(makeExtraData(config.ExtraData))
 

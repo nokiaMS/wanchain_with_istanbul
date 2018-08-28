@@ -361,7 +361,7 @@ func (self *worker) wait() {
 			// Broadcast the block and announce chain insertion event
 			self.mux.Post(core.NewMinedBlockEvent{Block: block})		//发送NewMinedBlockEvent事件,在这个事件的响应函数中会把块和块的hash广播给部分peers(不是广播给全部的peers.)
 			var (
-				events []interface{}
+				events []interface{}	//接口类型的分片.
 				logs   = work.state.Logs()
 			)
 			events = append(events, core.ChainEvent{Block: block, Hash: block.Hash(), Logs: logs})	//ChainEvent事件.

@@ -91,6 +91,7 @@ func (sb *backend) HandleMsg(addr common.Address, msg p2p.Msg) (bool, error) {
 
 //设置broadcaster.
 // SetBroadcaster implements consensus.Handler.SetBroadcaster
+//在protocol manager创建的时候会调用此函数,把istanbul共识机制的broadcaster设置为eth的protocol manager对象.
 func (sb *backend) SetBroadcaster(broadcaster consensus.Broadcaster) {
 	sb.broadcaster = broadcaster
 }
