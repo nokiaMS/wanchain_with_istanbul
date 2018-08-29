@@ -107,7 +107,7 @@ type inject struct {
 // and scheduling them for retrieval.
 type Fetcher struct {
 	// Various event channels
-	notify chan *announce
+	notify chan *announce	//新块hash广播到此节点之后节点会调用fetcher的Notify函数把新块的信息发送到此notify通道.
 	inject chan *inject
 
 	blockFilter  chan chan []*types.Block
@@ -118,8 +118,8 @@ type Fetcher struct {
 	quit chan struct{}
 
 	// Announce states
-	announces  map[string]int              // Per peer announce counts to prevent memory exhaustion
-	announced  map[common.Hash][]*announce // Announced blocks, scheduled for fetching
+	announces  map[string]int              // Per peer announce counts to prevent memory exhaustion	//每个peer广播给当前节点的block hash计数(当一个节点挖出一个块之后会广播这个块.)
+	announced  map[common.Hash][]*announce // Announced blocks, scheduled for fetching		//其他节点广播给当前节点的block hash的列表.
 	fetching   map[common.Hash]*announce   // Announced blocks, currently fetching	//当前正在获取的块.
 	fetched    map[common.Hash][]*announce // Blocks with headers fetched, scheduled for body retrieval
 	completing map[common.Hash]*announce   // Blocks with headers, currently body-completing
@@ -326,6 +326,7 @@ func (f *Fetcher) loop() {
 			// A block was announced, make sure the peer isn't DOSing us
 			propAnnounceInMeter.Mark(1)
 
+			//此处是为了防止dos攻击,对每个peer会记录发送的hash数量,超过一定数量则判定为是dos攻击,不于处理.
 			count := f.announces[notification.origin] + 1
 			if count > hashLimit {
 				log.Debug("Peer exceeded outstanding announces", "peer", notification.origin, "limit", hashLimit)
@@ -340,6 +341,8 @@ func (f *Fetcher) loop() {
 					break
 				}
 			}
+
+			//如果块还没有下载,那么下载这个块;如果块正在下载,则不处理这个block hash通知.
 			// All is well, schedule the announce if block's not yet downloading
 			if _, ok := f.fetching[notification.hash]; ok {
 				break
@@ -347,11 +350,14 @@ func (f *Fetcher) loop() {
 			if _, ok := f.completing[notification.hash]; ok {
 				break
 			}
-			f.announces[notification.origin] = count
-			f.announced[notification.hash] = append(f.announced[notification.hash], notification)
+
+			f.announces[notification.origin] = count	//fetcher中对应peer的block hash广播计数加1.
+			f.announced[notification.hash] = append(f.announced[notification.hash], notification)		//把当前block hash添加到当前节点的block hash列表中.
 			if f.announceChangeHook != nil && len(f.announced[notification.hash]) == 1 {
 				f.announceChangeHook(notification.hash, true)
 			}
+			//如果当前有需要fetch的block,那么就重置timer,如果没有的话那么不重置timer,如果多余一个要下载的block的话,说明timer已经被重置了,也不需要重置timer了.
+			//也就是需要fetch的block从无变到有的时候需要设置开始fetch的timer.
 			if len(f.announced) == 1 {
 				f.rescheduleFetch(fetchTimer)
 			}
@@ -571,17 +577,17 @@ func (f *Fetcher) loop() {
 // rescheduleFetch resets the specified fetch timer to the next announce timeout.
 func (f *Fetcher) rescheduleFetch(fetch *time.Timer) {
 	// Short circuit if no blocks are announced
-	if len(f.announced) == 0 {
+	if len(f.announced) == 0 {	//如果没有块需要下载,那么直接返回.
 		return
 	}
 	// Otherwise find the earliest expiring announcement
-	earliest := time.Now()
+	earliest := time.Now()	//节点的当前时间.
 	for _, announces := range f.announced {
 		if earliest.After(announces[0].time) {
 			earliest = announces[0].time
 		}
 	}
-	fetch.Reset(arriveTimeout - time.Since(earliest))
+	fetch.Reset(arriveTimeout - time.Since(earliest))		//最迟500毫秒后开始下载block,如果announce的时间很早,那么立即下载block.
 }
 
 // rescheduleComplete resets the specified completion timer to the next fetch timeout.

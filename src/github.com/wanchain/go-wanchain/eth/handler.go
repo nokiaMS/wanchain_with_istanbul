@@ -87,7 +87,7 @@ type ProtocolManager struct {
 	eventMux      *event.TypeMux
 	txCh          chan core.TxPreEvent	//交易通知接收通道，异步，buffer为4096
 	txSub         event.Subscription	//订阅交易通知，
-	minedBlockSub *event.TypeMuxSubscription
+	minedBlockSub *event.TypeMuxSubscription	//存储
 
 	// channels for fetcher, syncer, txsyncLoop
 	newPeerCh   chan *peer
@@ -653,10 +653,12 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		if err := msg.Decode(&announces); err != nil {
 			return errResp(ErrDecode, "%v: %v", msg, err)
 		}
-		// Mark the hashes as present at the remote node
+		// Mark the hashes as present at the remote node	//标记这个hash对p节点是已知的(p节点即为发送这个块hash的节点.)
 		for _, block := range announces {
-			p.MarkBlock(block.Hash)
+			p.MarkBlock(block.Hash)		//标记peer节点(也就是发送这个块hash的节点)已经知道了这个块了,这样本节点再次广播块的时候就不会再次发送给这个peer节点了.
 		}
+
+		//如果这个块hash在本地链上没有,那么加入到unknown列表用于后续获取块实体.
 		// Schedule all the unknown hashes for retrieval
 		unknown := make(newBlockHashesData, 0, len(announces))
 		for _, block := range announces {
@@ -664,7 +666,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				unknown = append(unknown, block)
 			}
 		}
-		for _, block := range unknown {
+		for _, block := range unknown {	//对于所有未知块列表中的hash,通知fetcher获取这个块.
 			pm.fetcher.Notify(p.id, block.Hash, block.Number, time.Now(), p.RequestOneHeader, p.RequestBodies)
 		}
 
@@ -736,23 +738,26 @@ func (pm *ProtocolManager) Enqueue(id string, block *types.Block) {
 
 // BroadcastBlock will either propagate a block to a subset of it's peers, or
 // will only announce it's availability (depending what's requested).
-//向peer广播块.
+//向peer广播块.	propagate:蔓延,扩散.
+// block: 待广播区块.
+// propagate: 是否广播块还是只广播块的hash. true: 广播块; false: 广播块的hash.
+//注意: 此函数会向部分peer广播块本身,向全部块广播块hash.
 func (pm *ProtocolManager) BroadcastBlock(block *types.Block, propagate bool) {
-	hash := block.Hash()
-	peers := pm.peers.PeersWithoutBlock(hash)
+	hash := block.Hash()	//获得块hash.
+	peers := pm.peers.PeersWithoutBlock(hash)	//获得当前节点的peer中尚未获得这个块的peer.
 
 	// If propagation is requested, send to a subset of the peer
 	if propagate {
 		// Calculate the TD of the block (it's not imported yet, so block.Td is not valid)
 		var td *big.Int
 		if parent := pm.blockchain.GetBlock(block.ParentHash(), block.NumberU64()-1); parent != nil {
-			td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))
+			td = new(big.Int).Add(block.Difficulty(), pm.blockchain.GetTd(block.ParentHash(), block.NumberU64()-1))	//td = 当前链td + 当前块的td.
 		} else {
 			log.Error("Propagating dangling block", "number", block.Number(), "hash", hash)
 			return
 		}
-		// Send the block to a subset of our peers
-		transfer := peers[:int(math.Sqrt(float64(len(peers))))]	//获得部分peer列表,不是全部的peer都发送.
+		// Send the block to a subset of our peers	//获得peer列表,
+		transfer := peers[:int(math.Sqrt(float64(len(peers))))]	//获得部分peer列表,不是全部的peer都发送. math.Sqrt()开平方.
 		for _, peer := range transfer {
 			peer.SendNewBlock(block, td)	//向peer发送block.
 		}
@@ -781,11 +786,12 @@ func (pm *ProtocolManager) BroadcastTx(hash common.Hash, tx *types.Transaction) 
 }
 
 // Mined broadcast loop
+//挖掘出新块的事件响应循环.
 func (self *ProtocolManager) minedBroadcastLoop() {
 	// automatically stops if unsubscribe
-	for obj := range self.minedBlockSub.Chan() {
-		switch ev := obj.Data.(type) {
-		case core.NewMinedBlockEvent:	//响应NewMinedBlockEvent.
+	for obj := range self.minedBlockSub.Chan() {	//对所有收到的新挖掘区块做顺序处理.
+		switch ev := obj.Data.(type) {		//获得事件.
+		case core.NewMinedBlockEvent:	//响应NewMinedBlockEvent,处理新区块.
 			self.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			self.BroadcastBlock(ev.Block, false) // Only then announce to the rest
 		}

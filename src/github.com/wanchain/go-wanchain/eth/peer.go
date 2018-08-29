@@ -65,7 +65,7 @@ type peer struct {
 	lock sync.RWMutex
 
 	knownTxs    *set.Set // Set of transaction hashes known to be known by this peer	//已经确认peer已经收到的交易.
-	knownBlocks *set.Set // Set of block hashes known to be known by this peer		//已经确认peer已经收到的块.
+	knownBlocks *set.Set // Set of block hashes known to be known by this peer		//本节点存储的peer已知的块列表.(在p2p.send之前块信息就被添加了,所以有可能peer其实不真正获得了这个块hash.)
 }
 
 func newPeer(version int, p *p2p.Peer, rw p2p.MsgReadWriter) *peer {
@@ -114,6 +114,7 @@ func (p *peer) SetHead(hash common.Hash, td *big.Int) {
 
 // MarkBlock marks a block as known for the peer, ensuring that the block will
 // never be propagated to this particular peer.
+// 标记hash对应的块peer节点已经知道了.
 func (p *peer) MarkBlock(hash common.Hash) {
 	// If we reached the memory allowance, drop a previously known block hash
 	for p.knownBlocks.Size() >= maxKnownBlocks {
@@ -149,14 +150,16 @@ func (p *peer) SendTransactions(txs types.Transactions) error {
 // SendNewBlockHashes announces the availability of a number of blocks through
 // a hash notification.
 //发送新的块的hash.
+// hashes: 哈希.
+// numbers: 块编号.
 func (p *peer) SendNewBlockHashes(hashes []common.Hash, numbers []uint64) error {
 	for _, hash := range hashes {
-		p.knownBlocks.Add(hash)
+		p.knownBlocks.Add(hash)		//把此hash添加到节点的已知块列表中.
 	}
-	request := make(newBlockHashesData, len(hashes))
+	request := make(newBlockHashesData, len(hashes))	//构造一个request.
 	for i := 0; i < len(hashes); i++ {
-		request[i].Hash = hashes[i]
-		request[i].Number = numbers[i]
+		request[i].Hash = hashes[i]		//设置request的hash域.
+		request[i].Number = numbers[i]	//设置request的number域,存储block number.
 	}
 	return p2p.Send(p.rw, NewBlockHashesMsg, request)	//发送新产生的块的hash.
 }
