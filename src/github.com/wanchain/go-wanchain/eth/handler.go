@@ -482,7 +482,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 		//	}
 		//}
 		// Filter out any explicitly requested headers, deliver the rest to the downloader
-		filter := len(headers) == 1
+		filter := len(headers) == 1		//如果是新块广播而获取块头的话,那么此处headers就是1,这个时候代码会走到下面的 if filter {} 流程中.
 		if filter {
 			// If it's a potential DAO fork check, validate against the rules
 			//if p.forkDrop != nil && pm.chainconfig.DAOForkBlock.Cmp(headers[0].Number) == 0 {

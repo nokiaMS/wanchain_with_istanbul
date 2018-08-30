@@ -31,7 +31,7 @@ import (
 
 const (
 	arriveTimeout = 500 * time.Millisecond // Time allowance before an announced block is explicitly requested
-	gatherSlack   = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches
+	gatherSlack   = 100 * time.Millisecond // Interval used to collate almost-expired announces with fetches	//gatherSlack的用途是为了在100毫秒的时间之内手机所有需要fetch的block.
 	fetchTimeout  = 5 * time.Second        // Maximum allotted time to return an explicitly requested block
 	maxUncleDist  = 7                      // Maximum allowed backward distance from the chain head
 	maxQueueDist  = 32                     // Maximum allowed distance from the chain head to queue
@@ -69,16 +69,17 @@ type peerDropFn func(id string)
 
 // announce is the hash notification of the availability of a new block in the
 // network.
+//announce结构表示网络中一个新块的产生.
 type announce struct {
-	hash   common.Hash   // Hash of the block being announced
-	number uint64        // Number of the block being announced (0 = unknown | old protocol)
-	header *types.Header // Header of the block partially reassembled (new protocol)
-	time   time.Time     // Timestamp of the announcement
+	hash   common.Hash   // Hash of the block being announced		//新块的hash.
+	number uint64        // Number of the block being announced (0 = unknown | old protocol)		//新块编号.
+	header *types.Header // Header of the block partially reassembled (new protocol)		//新块头指针.
+	time   time.Time     // Timestamp of the announcement			//新块头广播的时间.
 
-	origin string // Identifier of the peer originating the notification
+	origin string // Identifier of the peer originating the notification	//挖掘出这个新块的peer标识.
 
-	fetchHeader headerRequesterFn // Fetcher function to retrieve the header of an announced block
-	fetchBodies bodyRequesterFn   // Fetcher function to retrieve the body of an announced block
+	fetchHeader headerRequesterFn // Fetcher function to retrieve the header of an announced block	//块头获取函数.
+	fetchBodies bodyRequesterFn   // Fetcher function to retrieve the body of an announced block		//块body获取函数.
 }
 
 // headerFilterTask represents a batch of headers needing fetcher filtering.
@@ -120,7 +121,7 @@ type Fetcher struct {
 	// Announce states
 	announces  map[string]int              // Per peer announce counts to prevent memory exhaustion	//每个peer广播给当前节点的block hash计数(当一个节点挖出一个块之后会广播这个块.)
 	announced  map[common.Hash][]*announce // Announced blocks, scheduled for fetching		//其他节点广播给当前节点的block hash的列表.
-	fetching   map[common.Hash]*announce   // Announced blocks, currently fetching	//当前正在获取的块.
+	fetching   map[common.Hash]*announce   // Announced blocks, currently fetching	//网络中广播到本节点的新出的块,如果需要获取块实体,那么会被添加到fetching映射中,在fetching中的hash此时还没有开始获得header和body.
 	fetched    map[common.Hash][]*announce // Blocks with headers fetched, scheduled for body retrieval
 	completing map[common.Hash]*announce   // Blocks with headers, currently body-completing
 
@@ -131,7 +132,7 @@ type Fetcher struct {
 
 	// Callbacks
 	//定义了fetcher的回调函数.
-	getBlock       blockRetrievalFn   // Retrieves a block from the local chain					从本地链上获得指定函数的方法.
+	getBlock       blockRetrievalFn   // Retrieves a block from the local chain					从本地链上获得块指定的方法.
 	verifyHeader   headerVerifierFn   // Checks if a block's headers have a valid proof of work	验证区块头有效性的函数,在共识算法中定义.
 	broadcastBlock blockBroadcasterFn // Broadcasts a block to connected peers						向peers广播区块的方法.
 	chainHeight    chainHeightFn      // Retrieves the current chain's height						获得链高度的方法.
@@ -190,16 +191,16 @@ func (f *Fetcher) Stop() {
 // the network.
 func (f *Fetcher) Notify(peer string, hash common.Hash, number uint64, time time.Time,
 	headerFetcher headerRequesterFn, bodyFetcher bodyRequesterFn) error {
-	block := &announce{
-		hash:        hash,
-		number:      number,
-		time:        time,
-		origin:      peer,
-		fetchHeader: headerFetcher,
-		fetchBodies: bodyFetcher,
+	block := &announce{		//构造announce.
+		hash:        hash,	//块hash
+		number:      number,	//块编号.
+		time:        time,		//块广播到达时间.
+		origin:      peer,		//生成这个块的节点ID.
+		fetchHeader: headerFetcher,		//块头获取函数.
+		fetchBodies: bodyFetcher,		//块body获取函数.
 	}
 	select {
-	case f.notify <- block:
+	case f.notify <- block:	//announce放入f.notify通道.
 		return nil
 	case <-f.quit:
 		return errTerminated
@@ -222,6 +223,7 @@ func (f *Fetcher) Enqueue(peer string, block *types.Block) error {
 
 // FilterHeaders extracts all the headers that were explicitly requested by the fetcher,
 // returning those that should be handled differently.
+// FilterHeaders会抽取由fetcher明确请求了的header(比如说获取广播过来的新块的header),如果不是fetcher明确请求的header,则由后续流程处理(交给downloader.)
 func (f *Fetcher) FilterHeaders(peer string, headers []*types.Header, time time.Time) []*types.Header {
 	log.Trace("Filtering headers", "peer", peer, "headers", len(headers))
 
@@ -376,32 +378,32 @@ func (f *Fetcher) loop() {
 			// At least one block's timer ran out, check for needing retrieval
 			request := make(map[string][]common.Hash)
 
-			for hash, announces := range f.announced {
-				if time.Since(announces[0].time) > arriveTimeout-gatherSlack {
+			for hash, announces := range f.announced {	//处理所有需要获取实体的block hash.
+				if time.Since(announces[0].time) > arriveTimeout-gatherSlack {	//延迟一定的时间以对广播过来的新块hash做统一处理.
 					// Pick a random peer to retrieve from, reset all others
 					announce := announces[rand.Intn(len(announces))]
-					f.forgetHash(hash)
+					f.forgetHash(hash)	//此处会对hash对应的dos攻击计数减1.
 
 					// If the block still didn't arrive, queue for fetching
-					if f.getBlock(hash) == nil {
+					if f.getBlock(hash) == nil {	//如果过了400毫秒后本地链上还没有这个块那么主动获取这个块.(因为新块的广播不会发送给所有peer,而是选取一部分peer进行主动发送,所以有的节点是只有块hash,没有块实体的.)
 						request[announce.origin] = append(request[announce.origin], hash)
-						f.fetching[hash] = announce
+						f.fetching[hash] = announce		//把块hash和其announce的对应关系加入到f.fetching映射中.
 					}
 				}
 			}
 			// Send out all block header requests
-			for peer, hashes := range request {
+			for peer, hashes := range request {	//块fetch的顺序不是按照块hash广播的顺序.
 				log.Trace("Fetching scheduled headers", "peer", peer, "list", hashes)
 
 				// Create a closure of the fetch and schedule in on a new thread
 				fetchHeader, hashes := f.fetching[hashes[0]].fetchHeader, hashes
-				go func() {
+				go func() {	//启动一个单线程来下载block.
 					if f.fetchingHook != nil {
 						f.fetchingHook(hashes)
 					}
-					for _, hash := range hashes {
+					for _, hash := range hashes {	//对来自同一个节点的所有hash值进行fetch.
 						headerFetchMeter.Mark(1)
-						fetchHeader(hash) // Suboptimal, but protocol doesn't allow batch header retrievals
+						fetchHeader(hash) // Suboptimal, but protocol doesn't allow batch header retrievals	//获得hash对应的block header.
 					}
 				}()
 			}
