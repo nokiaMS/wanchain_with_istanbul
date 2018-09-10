@@ -153,6 +153,7 @@ func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
 }
 
 // LoadECDSA loads a secp256k1 private key from the given file.
+//从指定的文件中加载secp256k1私钥. 返回ecdsa.PrivateKey类型指针.
 func LoadECDSA(file string) (*ecdsa.PrivateKey, error) {
 	buf := make([]byte, 64)
 	fd, err := os.Open(file)
@@ -173,11 +174,13 @@ func LoadECDSA(file string) (*ecdsa.PrivateKey, error) {
 
 // SaveECDSA saves a secp256k1 private key to the given file with
 // restrictive permissions. The key data is saved hex-encoded.
+//以16进制编码把私钥保存在文件中.
 func SaveECDSA(file string, key *ecdsa.PrivateKey) error {
-	k := hex.EncodeToString(FromECDSA(key))
-	return ioutil.WriteFile(file, []byte(k), 0600)
+	k := hex.EncodeToString(FromECDSA(key))	//把私钥转换成字符串形式.
+	return ioutil.WriteFile(file, []byte(k), 0600)	//把字符串强制类型转换成[]byte,然后写入到文件中.
 }
 
+//产生私钥.
 func GenerateKey() (*ecdsa.PrivateKey, error) {
 	return ecdsa.GenerateKey(S256(), rand.Reader)
 }

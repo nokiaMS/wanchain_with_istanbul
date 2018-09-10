@@ -145,6 +145,7 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 	return nil
 }
 
+//从PrivateKey生成私钥.
 func newKeyFromECDSA(sk1, sk2 *ecdsa.PrivateKey) *Key {
 	id := uuid.NewRandom()
 	key := &Key{
@@ -202,13 +203,14 @@ func NewKeyForDirectICAP(rand io.Reader) *Key {
 	return key
 }
 
+//根据随机数参数创建新的key.
 func newKey(rand io.Reader) (*Key, error) {
-	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand)
+	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand)		//从随机数产生一个privateKey私钥.
 	if err != nil {
 		return nil, err
 	}
 
-	privateKeyECDSA2, err := ecdsa.GenerateKey(crypto.S256(), rand)
+	privateKeyECDSA2, err := ecdsa.GenerateKey(crypto.S256(), rand)	//产生另外一个随机数.
 	if err != nil {
 		return nil, err
 	}

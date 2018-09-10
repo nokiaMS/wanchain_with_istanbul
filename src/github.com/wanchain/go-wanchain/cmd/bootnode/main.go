@@ -32,7 +32,9 @@ import (
 	"github.com/wanchain/go-wanchain/p2p/netutil"
 )
 
+//bootnode程序入口函数.
 func main() {
+	//通过flag函数转换各种参数.
 	var (
 		listenAddr  = flag.String("addr", ":30301", "listen address")
 		genKey      = flag.String("genkey", "", "generate a node key")
@@ -48,7 +50,7 @@ func main() {
 		nodeKey *ecdsa.PrivateKey
 		err     error
 	)
-	flag.Parse()
+	flag.Parse()	//flag库的Parse()函数,如果没有此函数那么 bootnode --help函数返回为空,不会显示参数提示信息.
 
 	glogger := log.NewGlogHandler(log.StreamHandler(os.Stderr, log.TerminalFormat(false)))
 	glogger.Verbosity(log.Lvl(*verbosity))
@@ -60,12 +62,12 @@ func main() {
 		utils.Fatalf("-nat: %v", err)
 	}
 	switch {
-	case *genKey != "":
-		nodeKey, err = crypto.GenerateKey()
+	case *genKey != "":	//bootnode -genkey <key file name>
+		nodeKey, err = crypto.GenerateKey()		//生成私钥.
 		if err != nil {
 			utils.Fatalf("could not generate key: %v", err)
 		}
-		if err = crypto.SaveECDSA(*genKey, nodeKey); err != nil {
+		if err = crypto.SaveECDSA(*genKey, nodeKey); err != nil {	//把私钥以16进制形式保存到文件中.
 			utils.Fatalf("%v", err)
 		}
 		return

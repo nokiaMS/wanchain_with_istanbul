@@ -443,8 +443,9 @@ func (ks *KeyStore) expire(addr common.Address, u *unlocked, timeout time.Durati
 
 // NewAccount generates a new key and stores it into the key directory,
 // encrypting it with the passphrase.
+//创建新的key文件并存储到指定的key文件夹,存储的文件使用密码加密的.
 func (ks *KeyStore) NewAccount(passphrase string) (accounts.Account, error) {
-	_, account, err := storeNewKey(ks.storage, crand.Reader, passphrase)
+	_, account, err := storeNewKey(ks.storage, crand.Reader, passphrase)	//存储key文件.
 	if err != nil {
 		return accounts.Account{}, err
 	}

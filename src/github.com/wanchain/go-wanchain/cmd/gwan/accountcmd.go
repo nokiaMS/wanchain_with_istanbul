@@ -289,12 +289,13 @@ func ambiguousAddrRecovery(ks *keystore.KeyStore, err *keystore.AmbiguousAddrErr
 }
 
 // accountCreate creates a new account into the keystore defined by the CLI flags.
+// gwan account new创建新的账户.
 func accountCreate(ctx *cli.Context) error {
 	stack, _ := makeConfigNode(ctx)
 	password := getPassPhrase("Your new account is locked with a password. Please give a password. Do not forget this password.", true, 0, utils.MakePasswordList(ctx))
 
 	ks := stack.AccountManager().Backends(keystore.KeyStoreType)[0].(*keystore.KeyStore)
-	account, err := ks.NewAccount(password)
+	account, err := ks.NewAccount(password)	//创建新的keystore文件.
 	if err != nil {
 		utils.Fatalf("Failed to create account: %v", err)
 	}
