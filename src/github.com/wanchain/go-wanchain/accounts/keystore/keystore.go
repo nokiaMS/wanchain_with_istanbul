@@ -451,8 +451,8 @@ func (ks *KeyStore) NewAccount(passphrase string) (accounts.Account, error) {
 	}
 	// Add the account to the cache immediately rather
 	// than waiting for file system notifications to pick it up.
-	ks.cache.add(account)
-	ks.refreshWallets()
+	ks.cache.add(account)	//把新创建的账户添加到缓存中.
+	ks.refreshWallets()		//刷新钱包.
 	return account, nil
 }
 

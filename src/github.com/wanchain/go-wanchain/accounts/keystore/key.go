@@ -43,17 +43,20 @@ const (
 	version = 3
 )
 
+//key结构.
 type Key struct {
+	//key的id.
 	Id uuid.UUID // Version 4 "random" for unique id not derived from key data
 	// to simplify lookups we also store the address
+	//key的普通地址.20字节数组.
 	Address common.Address
 	// we only store privkey as pubkey/address can be derived from it
 	// privkey in this struct is always in plaintext
-	PrivateKey *ecdsa.PrivateKey
+	PrivateKey *ecdsa.PrivateKey	//第一私钥地址.
 	// add a second privkey for privary
-	PrivateKey2 *ecdsa.PrivateKey
+	PrivateKey2 *ecdsa.PrivateKey	//wanchain增加的字段,第二私钥地址,用于隐私交易.
 	// compact wanchain address format
-	WAddress common.WAddress
+	WAddress common.WAddress	//66字节byte数组.
 }
 
 // Used to import and export raw keypair
@@ -147,24 +150,27 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 
 //从PrivateKey生成私钥.
 func newKeyFromECDSA(sk1, sk2 *ecdsa.PrivateKey) *Key {
-	id := uuid.NewRandom()
+	id := uuid.NewRandom()	//随机创建一个key id.
 	key := &Key{
-		Id:          id,
-		Address:     crypto.PubkeyToAddress(sk1.PublicKey),
-		PrivateKey:  sk1,
-		PrivateKey2: sk2,
+		Id:          id,	//key id.
+		Address:     crypto.PubkeyToAddress(sk1.PublicKey),	//从第一私钥的公钥生成地址.
+		PrivateKey:  sk1,	//第一私钥.
+		PrivateKey2: sk2,	//第二私钥.
 	}
 
-	updateWaddress(key)
+	updateWaddress(key)		//更新key结构中的wanchain账户地址.前33字节是第一公钥,后33字节是第二公钥.
 	return key
 }
 
 // updateWaddress adds WAddress field to the Key struct
+// 增加WAddress地址到key结构中.
 func updateWaddress(k *Key) {
+	//从第一私钥和第二私钥生成WAddress.
 	k.WAddress = *GenerateWaddressFromPK(&k.PrivateKey.PublicKey, &k.PrivateKey2.PublicKey)
 }
 
 // ECDSAPKCompression serializes a public key in a 33-byte compressed format from btcec
+//把公钥压缩成33字节.比特币也是按照这个方法压缩的.
 func ECDSAPKCompression(p *ecdsa.PublicKey) []byte {
 	const pubkeyCompressed byte = 0x2
 	b := make([]byte, 0, 33)
@@ -210,21 +216,22 @@ func newKey(rand io.Reader) (*Key, error) {
 		return nil, err
 	}
 
-	privateKeyECDSA2, err := ecdsa.GenerateKey(crypto.S256(), rand)	//产生另外一个随机数.
+	privateKeyECDSA2, err := ecdsa.GenerateKey(crypto.S256(), rand)	//产生另外一个PrivateKey的私钥.此私钥用于隐私保护交易.
 	if err != nil {
 		return nil, err
 	}
-	return newKeyFromECDSA(privateKeyECDSA, privateKeyECDSA2), nil
+	return newKeyFromECDSA(privateKeyECDSA, privateKeyECDSA2), nil	//从两个私钥生成key结构.
 }
 
+//加密并存储私钥到文件中.
 func storeNewKey(ks keyStore, rand io.Reader, auth string) (*Key, accounts.Account, error) {
-	key, err := newKey(rand)
+	key, err := newKey(rand)	//从随机数生成一个新的PrivateKey结构的私钥.
 	if err != nil {
 		return nil, accounts.Account{}, err
 	}
 	a := accounts.Account{Address: key.Address, URL: accounts.URL{Scheme: KeyStoreScheme, Path: ks.JoinPath(keyFileName(key.Address))}}
-	if err := ks.StoreKey(a.URL.Path, key, auth); err != nil {
-		zeroKey(key.PrivateKey)
+	if err := ks.StoreKey(a.URL.Path, key, auth); err != nil {		//对私钥进行加密并写入文件.
+		zeroKey(key.PrivateKey)		//清空内存中的私钥结构,为了安全.
 		return nil, a, err
 	}
 	return key, a, err
@@ -293,10 +300,12 @@ func GeneratePKPairFromWAddress(w []byte) (*ecdsa.PublicKey, *ecdsa.PublicKey, e
 	return (*ecdsa.PublicKey)(PK1), (*ecdsa.PublicKey)(PK2), nil
 }
 
+//从第一私钥和第二私钥生成WAddress.
+//WAddress第前33字节是第一公钥,后33字节是第二公钥.
 func GenerateWaddressFromPK(A *ecdsa.PublicKey, B *ecdsa.PublicKey) *common.WAddress {
 	var tmp common.WAddress
-	copy(tmp[:33], ECDSAPKCompression(A))
-	copy(tmp[33:], ECDSAPKCompression(B))
+	copy(tmp[:33], ECDSAPKCompression(A))	//把第一私钥对应的公钥压缩成33字节,并存放到[0:33)字节中.
+	copy(tmp[33:], ECDSAPKCompression(B))	//把第二私钥对应的公钥压缩成33字节,并存放到[33:66)字节中.
 	return &tmp
 }
 

@@ -29,8 +29,8 @@ import (
 
 const (
 	HashLength     = 32	//单位为字节。
-	AddressLength  = 20
-	WAddressLength = 66
+	AddressLength  = 20	//原始以太坊的账户地址长度.
+	WAddressLength = 66	//wanchain账户地址长度.
 )
 
 var (
@@ -137,10 +137,10 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 /////////// Address
 
 // Address represents the 20 byte address of an ordinary account.
-type Address [AddressLength]byte
+type Address [AddressLength]byte	//普通的账户地址类型是20字节的byte数组.
 
 // WAddress represents the 66 byte address of an Wanchain account
-type WAddress [WAddressLength]byte
+type WAddress [WAddressLength]byte	//wanchain的账户地址是一个66字节的byte数组.
 
 func BytesToAddress(b []byte) Address {
 	var a Address

@@ -99,12 +99,13 @@ func (ks keyStorePassphrase) GetKey(addr common.Address, filename, auth string) 
 	return key, nil
 }
 
+//把key存储到keystore文件中.wanchain代码中走到此处,而不是明文的部分.
 func (ks keyStorePassphrase) StoreKey(filename string, key *Key, auth string) error {
 	keyjson, err := EncryptKey(key, auth, ks.scryptN, ks.scryptP)
 	if err != nil {
 		return err
 	}
-	return writeKeyFile(filename, keyjson)
+	return writeKeyFile(filename, keyjson)	//把加密后的keyjson写入到keystore文件中.
 }
 
 // Implements GetEncryptedKey method of keystore interface
@@ -176,14 +177,14 @@ func EncryptKey(key *Key, auth string, scryptN, scryptP int) ([]byte, error) {
 	}
 
 	encryptedKeyJSONV3 := encryptedKeyJSONV3{
-		key.Address.Hex()[2:],
-		*cryptoStruct,
-		*cryptoStruct2,
-		key.Id.String(),
-		version,
-		hex.EncodeToString(key.WAddress[:]),
+		key.Address.Hex()[2:],		//普通地址.
+		*cryptoStruct,		//第一私钥.
+		*cryptoStruct2,	//第二私钥.用于隐私保护交易.
+		key.Id.String(),		//key id.
+		version,			//版本号.
+		hex.EncodeToString(key.WAddress[:]),	//Wanchain的WAddress.
 	}
-	return json.Marshal(encryptedKeyJSONV3)
+	return json.Marshal(encryptedKeyJSONV3)	//对json格式的数据进行序列化.
 }
 
 // EncryptOnePrivateKey encrypts a key using the specified scrypt parameters into one field of a json
