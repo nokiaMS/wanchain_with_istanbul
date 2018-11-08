@@ -58,7 +58,7 @@ type NodeDialer interface {
 // create TCP connections to nodes in the network
 //实现了NodeDialer接口.
 type TCPDialer struct {
-	*net.Dialer
+	*net.Dialer	//包含了go语言标准库中的net.Dialer实现.
 }
 
 // Dial creates a TCP connection to the node
