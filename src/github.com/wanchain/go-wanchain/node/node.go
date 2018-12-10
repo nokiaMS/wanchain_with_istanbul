@@ -260,10 +260,12 @@ func (n *Node) openDataDir() error {
 //启动节点rpc服务。
 func (n *Node) startRPC(services map[reflect.Type]Service) error {
 	// Gather all the possible APIs to surface
+	//获得所有服务的api.
 	apis := n.apis()
 	for _, service := range services {
 		apis = append(apis, service.APIs()...)
 	}
+
 	// Start the various API endpoints, terminating all in case of errors
 	if err := n.startInProc(apis); err != nil {
 		return err
